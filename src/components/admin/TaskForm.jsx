@@ -1,0 +1,119 @@
+
+import React from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { PlusCircle } from 'lucide-react';
+
+const TaskForm = ({ taskData, onChange, onActiveChange, onSubmit, isEditing, onCancel, onVerificationTypeChange }) => {
+  const idPrefix = isEditing ? 'edit' : 'new';
+  const showVerificationOptions = taskData.type === 'telegram_join';
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    onChange(e); // Pass event up for general handling
+
+    // Reset verification type if task type changes away from telegram_join
+    if (name === 'type' && value !== 'telegram_join' && onVerificationTypeChange) {
+      onVerificationTypeChange('manual'); // Default back to manual or another sensible default
+    }
+  };
+
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor={`${idPrefix}-title`}>Title</Label>
+          <Input id={`${idPrefix}-title`} name="title" value={taskData.title} onChange={handleInputChange} required />
+        </div>
+        <div>
+          <Label htmlFor={`${idPrefix}-reward`}>Reward (STON)</Label>
+          <Input id={`${idPrefix}-reward`} name="reward" type="number" min="0" step="1" value={taskData.reward} onChange={handleInputChange} required />
+        </div>
+      </div>
+      <div>
+        <Label htmlFor={`${idPrefix}-description`}>Description</Label>
+        <Input id={`${idPrefix}-description`} name="description" value={taskData.description || ''} onChange={handleInputChange} />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor={`${idPrefix}-type`}>Type</Label>
+          <select
+            id={`${idPrefix}-type`}
+            name="type"
+            value={taskData.type}
+            onChange={handleInputChange}
+            className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <option value="telegram_join">Telegram Join</option>
+            <option value="twitter_follow">Twitter Follow</option>
+            <option value="visit_site">Visit Site</option>
+            <option value="daily_checkin">Daily Check-in</option>
+            <option value="referral">Referral (System)</option>
+          </select>
+        </div>
+        <div>
+          <Label htmlFor={`${idPrefix}-target`}>Target (URL/@handle)</Label>
+          <Input
+             id={`${idPrefix}-target`}
+             name="target"
+             value={taskData.target || ''}
+             onChange={handleInputChange}
+             placeholder={taskData.type === 'telegram_join' || taskData.type === 'twitter_follow' ? '@username' : 'https://...'} />
+        </div>
+      </div>
+
+       {/* Verification Type Selection - Conditional */}
+       {showVerificationOptions && onVerificationTypeChange && (
+         <div className="pt-2">
+            <Label>Verification Method</Label>
+             <RadioGroup
+                name="verificationType"
+                value={taskData.verificationType || 'manual'}
+                onValueChange={onVerificationTypeChange}
+                className="flex items-center space-x-4 mt-2"
+             >
+                <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="auto" id={`${idPrefix}-verify-auto`} />
+                    <Label htmlFor={`${idPrefix}-verify-auto`}>Automatic</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="manual" id={`${idPrefix}-verify-manual`} />
+                    <Label htmlFor={`${idPrefix}-verify-manual`}>Manual</Label>
+                </div>
+             </RadioGroup>
+             <p className="text-xs text-muted-foreground mt-1">
+                Automatic requires backend integration. Manual requires admin review.
+             </p>
+         </div>
+       )}
+
+
+      {/* Active Status Switch */}
+       <div className="flex items-center space-x-2 pt-2">
+         <Switch
+           id={`${idPrefix}-active`}
+           checked={taskData.active}
+           onCheckedChange={onActiveChange}
+         />
+         <Label htmlFor={`${idPrefix}-active`}>Task Active</Label>
+       </div>
+
+      {/* Action Buttons */}
+      <div className="flex justify-end gap-2 pt-4">
+        {isEditing && (
+          <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
+        )}
+        <Button type="submit">
+            {isEditing ? 'Save Changes' : <><PlusCircle className="mr-2 h-4 w-4" /> Add Task</>}
+        </Button>
+      </div>
+    </form>
+  );
+};
+
+export default TaskForm;
+  
