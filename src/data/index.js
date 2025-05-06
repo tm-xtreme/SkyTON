@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 // Re-exporting functions from the new Firestore-based stores
@@ -10,6 +9,9 @@ export * from '@/data/taskStore';
 export * from '@/data/adminStore';
 export * from '@/data/leaderboardStore';
 
+// Explicit export for getLeaderboard if not automatically included
+export { getLeaderboard } from '@/data/leaderboardStore';
+
 // Export specific action modules if direct access is needed (optional)
 // export * as userActions from '@/data/firestore/userActions';
 // export * as taskActions from '@/data/firestore/taskActions';
@@ -20,4 +22,3 @@ export * from '@/data/leaderboardStore';
 // Export defaults and telegram utils
 export * from '@/data/defaults';
 export * from '@/data/telegramUtils';
-  
