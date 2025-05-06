@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { getOrCreateUser } from '@/data/firestore/userActions'; // Updated import path
 import { seedInitialTasks } from '@/data/firestore/initActions'; // Updated import path
@@ -11,9 +10,14 @@ export const initializeAppData = async () => {
 
   await seedInitialTasks(defaultFirestoreTasks);
 
+  // Allow fallback for dev/test mode
   if (!telegramUser) {
-    console.warn("No Telegram user data found in URL. App might not function correctly.");
-    return null;
+    console.warn("No Telegram user data found in URL. Using dummy user for dev/test.");
+    return {
+      id: 'test_user',
+      name: 'Test User',
+      isAdmin: true, // or false if you want to test as a regular user
+    };
   }
 
   const userData = await getOrCreateUser(telegramUser, referrerId);
@@ -23,7 +27,6 @@ export const initializeAppData = async () => {
     return null;
   }
 
-  console.log("App data initialized. User:", userData.id); // Use userData.id (document ID)
+  console.log("App data initialized. User:", userData.id);
   return userData;
 };
-  
