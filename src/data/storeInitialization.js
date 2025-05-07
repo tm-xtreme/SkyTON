@@ -13,7 +13,7 @@ export const initializeAppData = async () => {
   // Allow fallback for dev/test mode
   if (!telegramUser) {
     console.warn("No Telegram user data found in URL. Using dummy user for dev/test.");
-    return null/*{
+    return null;/*{
       id: 'test_user',
       name: 'Test User',
       isAdmin: true, // or false if you want to test as a regular user
