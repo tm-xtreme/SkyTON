@@ -10,9 +10,9 @@ import { generateReferralLink } from '@/data/telegramUtils';
 import { getTask } from '@/data/firestore/taskActions'; // Import from new location
 
 // Fetches user data or creates a new user if they don't exist
-export const getOrCreateUser = async (telegramUserData, referrerId) => {
+export const getOrCreateUser = async (telegramUserData) => {
   if (!telegramUserData || !telegramUserData.id) {
-    console.error("Cannot get or create user without Telegram ID.");
+    console.error("Missing Telegram data.");
     return null;
   }
 
@@ -23,58 +23,45 @@ export const getOrCreateUser = async (telegramUserData, referrerId) => {
     const userSnap = await getDoc(userRef);
 
     if (userSnap.exists()) {
-      console.log("Existing user found:", userId);
-      const userData = userSnap.data();
-      if (!userData.referralLink || !userData.referralLink.includes('?u=')) {
-        userData.referralLink = generateReferralLink(userId);
-      }
+      const existingData = userSnap.data();
       const updates = {};
-      if (telegramUserData.username && userData.username !== telegramUserData.username) updates.username = telegramUserData.username;
-      if (telegramUserData.firstName && userData.firstName !== telegramUserData.firstName) updates.firstName = telegramUserData.firstName;
-      if (telegramUserData.lastName && userData.lastName !== telegramUserData.lastName) updates.lastName = telegramUserData.lastName;
-      if (telegramUserData.profilePicUrl && userData.profilePicUrl !== telegramUserData.profilePicUrl) updates.profilePicUrl = telegramUserData.profilePicUrl;
+
+      // Auto-generate referral link if missing
+      if (!existingData.referralLink || !existingData.referralLink.includes('?u=')) {
+        updates.referralLink = generateReferralLink(userId);
+      }
+
+      // Update Telegram fields if changed
+      if (telegramUserData.username && existingData.username !== telegramUserData.username)
+        updates.username = telegramUserData.username;
+      if (telegramUserData.firstName && existingData.firstName !== telegramUserData.firstName)
+        updates.firstName = telegramUserData.firstName;
+      if (telegramUserData.lastName && existingData.lastName !== telegramUserData.lastName)
+        updates.lastName = telegramUserData.lastName;
+      if (telegramUserData.profilePicUrl && existingData.profilePicUrl !== telegramUserData.profilePicUrl)
+        updates.profilePicUrl = telegramUserData.profilePicUrl;
 
       if (Object.keys(updates).length > 0) {
         await updateDoc(userRef, updates);
-        console.log("Updated existing user profile info from Telegram data.");
-        return { id: userSnap.id, ...userData, ...updates }; // Return merged data with ID
+        console.log("User profile updated from Telegram data.");
+        return { id: userId, ...existingData, ...updates };
       }
 
-      return { id: userSnap.id, ...userData }; // Return existing data with ID
-
+      return { id: userId, ...existingData };
     } else {
-      console.log("New user detected, creating document for:", userId);
       const newUser = defaultFirestoreUser(
         userId,
         telegramUserData.username,
         telegramUserData.firstName,
         telegramUserData.lastName,
-        referrerId
+        null
       );
       newUser.profilePicUrl = telegramUserData.profilePicUrl;
       newUser.referralLink = generateReferralLink(userId);
 
-      const batch = writeBatch(db);
-      batch.set(userRef, { ...newUser, joinedAt: serverTimestamp() });
-
-      if (referrerId) {
-        const referrerRef = doc(db, "users", referrerId);
-        const referrerSnap = await getDoc(referrerRef);
-        if (referrerSnap.exists()) {
-            batch.update(referrerRef, {
-              referrals: increment(1)
-            });
-            console.log(`Incrementing referrals for referrer: ${referrerId}`);
-        } else {
-            console.warn(`Referrer ${referrerId} not found. Cannot increment referrals.`);
-        }
-      }
-
-      await batch.commit();
-      console.log("New user created successfully, referral updated if applicable.");
-
-      const newUserSnap = await getDoc(userRef);
-      return newUserSnap.exists() ? { id: newUserSnap.id, ...newUserSnap.data() } : null; // Return new data with ID
+      await setDoc(userRef, { ...newUser, joinedAt: serverTimestamp() });
+      console.log("New user created from WebApp.");
+      return { id: userId, ...newUser };
     }
   } catch (error) {
     console.error("Error in getOrCreateUser:", error);
