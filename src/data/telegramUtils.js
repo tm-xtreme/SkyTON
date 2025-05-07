@@ -1,6 +1,7 @@
+
 import React from 'react';
 
-// Parses Telegram Web App data AND referral parameter 'userId'
+// Parses Telegram Web App data AND referral parameter 'u'
 export const parseLaunchParams = () => {
   const hash = window.location.hash.slice(1);
   if (!hash) {
@@ -9,7 +10,6 @@ export const parseLaunchParams = () => {
 
   const params = new URLSearchParams(hash);
   const tgWebAppData = params.get('tgWebAppData');
-  const referrerId = params.get('userId'); // Get referrer ID from 'userId' param
 
   let telegramUser = null;
 
@@ -29,6 +29,7 @@ export const parseLaunchParams = () => {
           username: userData.username || null, // Use null if undefined
           firstName: firstName,
           lastName: lastName,
+          const referrerId = String(userData.id);, // Get referrer ID from 'u' param
           fullName: `${firstName} ${lastName}`.trim(), // Keep fullName for display convenience
           profilePicUrl: userData.photo_url || null,
         };
@@ -42,8 +43,10 @@ export const parseLaunchParams = () => {
   return { telegramUser, referrerId };
 };
 
-// Generates a referral link for the given user ID
+
 export const generateReferralLink = (userId) => {
     if (!userId) return '';
-    return `http://t.me/xSkyTON_Bot?start=User_${userId}`;
+    // Use the specific bot URL provided
+    return `http://t.me/xSkyTON_Bot?Start=User_${userId}`;
 };
+  
