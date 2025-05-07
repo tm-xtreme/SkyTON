@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 // Parses Telegram Web App data AND referral parameter 'u'
@@ -29,7 +28,7 @@ export const parseLaunchParams = () => {
           username: userData.username || null, // Use null if undefined
           firstName: firstName,
           lastName: lastName,
-          const referrerId = String(userData.id);, // Get referrer ID from 'u' param
+          const referrerId = String(userData.id), // Get referrer ID from 'u' param
           fullName: `${firstName} ${lastName}`.trim(), // Keep fullName for display convenience
           profilePicUrl: userData.photo_url || null,
         };
