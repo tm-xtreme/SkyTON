@@ -17,7 +17,7 @@ export const initializeAppData = async () => {
       id: 'test_user',
       name: 'Test User',
       isAdmin: true, // or false if you want to test as a regular user
-    };*
+    };*/
   }
 
   const userData = await getOrCreateUser(telegramUser, referrerId);
