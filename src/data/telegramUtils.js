@@ -11,6 +11,7 @@ export const parseLaunchParams = () => {
   const tgWebAppData = params.get('tgWebAppData');
 
   let telegramUser = null;
+  let referrerId = null;
 
   if (tgWebAppData) {
     try {
@@ -23,12 +24,13 @@ export const parseLaunchParams = () => {
         const firstName = userData.first_name || '';
         const lastName = userData.last_name || '';
 
+        referrerId = String(userData.id); // Extract referrer ID
+
         telegramUser = {
           id: String(userData.id), // Ensure ID is a string
           username: userData.username || null, // Use null if undefined
           firstName: firstName,
           lastName: lastName,
-          const referrerId = String(userData.id), // Get referrer ID from 'u' param
           fullName: `${firstName} ${lastName}`.trim(), // Keep fullName for display convenience
           profilePicUrl: userData.photo_url || null,
         };
@@ -42,10 +44,8 @@ export const parseLaunchParams = () => {
   return { telegramUser, referrerId };
 };
 
-
 export const generateReferralLink = (userId) => {
-    if (!userId) return '';
-    // Use the specific bot URL provided
-    return `http://t.me/xSkyTON_Bot?Start=User_${userId}`;
+  if (!userId) return '';
+  // Use the specific bot URL provided
+  return `http://t.me/xSkyTON_Bot?Start=User_${userId}`;
 };
-  
