@@ -43,7 +43,7 @@ export const parseLaunchParams = () => {
 };
 
 // Generates a referral link for the given user ID
-const generateReferralLink = (userId) => {
+export const generateReferralLink = (userId) => {
     if (!userId) return '';
     return `http://t.me/xSkyTON_Bot?start=User_${userId}`;
 };
