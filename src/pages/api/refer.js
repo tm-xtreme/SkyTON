@@ -10,7 +10,7 @@ import {
 } from 'firebase/firestore';
 
 export default async function handler(req, res) {
-  const { api, new: newUserId, referreby } = req.query;
+  const { api, new: newUserId, referreby, tgWebAppData } = req.query;
 
   // Use Vercel environment variable for API key
   const VALID_API_KEY = process.env.NEXT_PUBLIC_REFER_API_KEY;
@@ -19,8 +19,16 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Only GET method is allowed.' });
   }
 
-  if (api !== VALID_API_KEY || !newUserId) {
-    return res.status(400).json({ error: 'Invalid API key or missing new user ID.' });
+  // Check if the request is from Telegram or if a valid API key is provided
+  const isTelegram = tgWebAppData !== undefined;
+  const hasValidApiKey = api === VALID_API_KEY;
+
+  if (!isTelegram && !hasValidApiKey) {
+    return res.status(403).json({ error: 'Access denied. This API is only accessible via Telegram or with a valid API key.' });
+  }
+
+  if (!newUserId) {
+    return res.status(400).json({ error: 'Missing new user ID.' });
   }
 
   const newUserRef = doc(db, 'users', newUserId);
@@ -65,4 +73,4 @@ export default async function handler(req, res) {
     console.error('Referral API Error:', error);
     return res.status(500).json({ success: false, error: 'Internal server error.' });
   }
-        }
+}
