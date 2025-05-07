@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { db } from '@/lib/firebase';
 import {
@@ -27,8 +26,8 @@ export const getOrCreateUser = async (telegramUserData) => {
       const updates = {};
 
       // Auto-generate referral link if missing
-      if (!existingData.referralLink || !existingData.referralLink.includes('?u=')) {
-        updates.referralLink = generateReferralLink(userId);
+      if (!existingData.referralLink || !existingData.referralLink.includes('?start=')) {
+    updates.referralLink = generateReferralLink(userId);
       }
 
       // Update Telegram fields if changed
