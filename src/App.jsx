@@ -81,7 +81,7 @@ function App() {
   const isAdmin = currentUser?.isAdmin === true; // Check admin status from loaded user data
 
   const handleAdminLogin = () => {
-    if (adminPassword === process.env.NEXT_PUBLIC_ENV_ADMIN_CODE) {
+    if (adminPassword === process.env.VITE_ENV_ADMIN_CODE) {
       setAdminVerified(true);
       setError(null);
     } else {
