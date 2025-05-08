@@ -1,49 +1,59 @@
-// api/refer.js
-import { db } from '../lib/firebaseAdmin';
+// src/api/refer.js
+
+import { db } from '@/firebaseConfig'; // Adjust this path if needed
+import { doc, getDoc, setDoc, updateDoc, increment, arrayUnion } from 'firebase/firestore';
 
 export default async function handler(req, res) {
-  const { api, new: newUserID, referreby } = req.query;
+  const { api, new: newUserId, referreby: referredById } = req.query;
 
-  if (api !== process.env.REFER_API_KEY) {
-    return res.status(401).json({ error: 'Invalid API key' });
+  // Validate API key
+  if (!api || api !== process.env.VITE_ADMIN_API_KEY) {
+    return res.status(403).json({ success: false, message: 'Invalid API key.' });
   }
 
-  if (!newUserID || !referreby || newUserID === referreby) {
-    return res.status(400).json({ error: 'Invalid parameters' });
+  if (!newUserId || !referredById || newUserId === referredById) {
+    return res.status(400).json({ success: false, message: 'Invalid referral data.' });
   }
 
   try {
-    const newUserRef = db.collection('users').doc(newUserID);
-    const referrerRef = db.collection('users').doc(referreby);
+    const newUserRef = doc(db, 'users', newUserId);
+    const referredByRef = doc(db, 'users', referredById);
 
-    const newUserSnap = await newUserRef.get();
-    if (newUserSnap.exists && newUserSnap.data().referredBy) {
-      return res.status(409).json({ error: 'User already referred' });
+    const [newUserSnap, referredBySnap] = await Promise.all([
+      getDoc(newUserRef),
+      getDoc(referredByRef)
+    ]);
+
+    if (!newUserSnap.exists() || !referredBySnap.exists()) {
+      return res.status(404).json({ success: false, message: 'User(s) not found.' });
     }
 
-    const referrerSnap = await referrerRef.get();
-    if (!referrerSnap.exists) {
-      return res.status(404).json({ error: 'Referrer not found' });
+    const newUserData = newUserSnap.data();
+    if (newUserData.invitedBy) {
+      return res.status(409).json({ success: false, message: 'User already referred by someone.' });
     }
 
-    // Get reward amount from admin config
-    const configSnap = await db.collection('config').doc('referral').get();
-    const rewardAmount = configSnap.exists ? configSnap.data().rewardAmount || 0 : 0;
+    // Reward settings (can be updated later in admin panel)
+    const rewardAmount = 50;
 
-    await newUserRef.set({ referredBy: referreby, createdAt: Date.now() }, { merge: true });
+    await Promise.all([
+      updateDoc(newUserRef, {
+        invitedBy: referredById
+      }),
+      updateDoc(referredByRef, {
+        referrals: increment(1),
+        balance: increment(rewardAmount),
+        referredUsers: arrayUnion(newUserId)
+      })
+    ]);
 
-    const referredUsers = referrerSnap.data().referredUsers || [];
-    referredUsers.push(newUserID);
-
-    await referrerRef.update({
-      totalReferred: (referrerSnap.data().totalReferred || 0) + 1,
-      balance: (referrerSnap.data().balance || 0) + rewardAmount,
-      referredUsers,
+    return res.status(200).json({
+      success: true,
+      message: 'Referral successful and data updated.'
     });
 
-    return res.status(200).json({ message: 'Referral recorded successfully' });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: 'Server error' });
+    console.error('Referral error:', error);
+    return res.status(500).json({ success: false, message: 'Server error.' });
   }
 }
