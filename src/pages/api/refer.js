@@ -13,7 +13,7 @@ export default async function handler(req, res) {
   const { api, new: newUserId, referreby, tgWebAppData } = req.query;
 
   // Use Vercel environment variable for API key
-  const VALID_API_KEY = process.env.NEXT_PUBLIC_REFER_API_KEY;
+  const VALID_API_KEY = import.meta.env.NEXT_PUBLIC_REFER_API_KEY;
 
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Only GET method is allowed.' });
