@@ -1,12 +1,10 @@
-// src/api/refer.js
-
-import { db } from '../src/lib/serverFirebase.js'; // Adjust this path if needed
+import { db } from '../src/lib/serverFirebase.js';
 import { doc, getDoc, setDoc, updateDoc, increment, arrayUnion } from 'firebase/firestore';
+import { defaultFirestoreUser } from '../src/data/defaults.js';
 
 export default async function handler(req, res) {
   const { api, new: newUserId, referreby: referredById } = req.query;
 
-  // Validate API key
   if (!api || api !== process.env.ADMIN_API_KEY) {
     return res.status(403).json({ success: false, message: 'Invalid API key.' });
   }
@@ -24,32 +22,34 @@ export default async function handler(req, res) {
       getDoc(referredByRef)
     ]);
 
-    if (!newUserSnap.exists() || !referredBySnap.exists()) {
-      return res.status(404).json({ success: false, message: 'User(s) not found.' });
+    if (!referredBySnap.exists()) {
+      return res.status(404).json({ success: false, message: 'Referrer not found.' });
     }
 
-    const newUserData = newUserSnap.data();
-    if (newUserData.invitedBy) {
-      return res.status(409).json({ success: false, message: 'User already referred by someone.' });
-    }
+    // If new user doesn't exist, create a blank user with referral data
+    if (!newUserSnap.exists()) {
+      await setDoc(newUserRef, defaultFirestoreUser(newUserId, null, null, null, referredById));
+    } else {
+      const newUserData = newUserSnap.data();
+      if (newUserData.invitedBy) {
+        return res.status(409).json({ success: false, message: 'User already referred by someone.' });
+      }
 
-    // Reward settings (can be updated later in admin panel)
-    const rewardAmount = 50;
-
-    await Promise.all([
-      updateDoc(newUserRef, {
+      await updateDoc(newUserRef, {
         invitedBy: referredById
-      }),
-      updateDoc(referredByRef, {
-        referrals: increment(1),
-        balance: increment(rewardAmount),
-        referredUsers: arrayUnion(newUserId)
-      })
-    ]);
+      });
+    }
+
+    // Update referrer
+    await updateDoc(referredByRef, {
+      referrals: increment(1),
+      balance: increment(50),
+      referredUsers: arrayUnion(newUserId)
+    });
 
     return res.status(200).json({
       success: true,
-      message: 'Referral successful and data updated.'
+      message: 'Referral processed. New user created or updated.'
     });
 
   } catch (error) {
