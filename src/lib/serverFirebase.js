@@ -1,8 +1,5 @@
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import dotenv from 'dotenv';
-
-dotenv.config();
 
 const serviceAccount = {
   type: 'service_account',
