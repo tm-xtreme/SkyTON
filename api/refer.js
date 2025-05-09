@@ -7,7 +7,7 @@ export default async function handler(req, res) {
   const { api, new: newUserId, referreby: referredById } = req.query;
 
   // Validate API key
-  if (!api || api !== process.env.VITE_ADMIN_API_KEY) {
+  if (!api || api !== process.env.ADMIN_API_KEY) {
     return res.status(403).json({ success: false, message: 'Invalid API key.' });
   }
 
