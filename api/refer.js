@@ -1,6 +1,6 @@
 // src/api/refer.js
 
-import { db } from '@/firebaseConfig'; // Adjust this path if needed
+import { db } from '../src/firebaseConfig.js'; // Adjust this path if needed
 import { doc, getDoc, setDoc, updateDoc, increment, arrayUnion } from 'firebase/firestore';
 
 export default async function handler(req, res) {
