@@ -1,15 +1,19 @@
-import { initializeApp, cert, getApps } from 'firebase-admin/app';
+import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
-// Initialize Firebase only if no apps are initialized
-if (!getApps().length) {
-  initializeApp({
+let app;
+try {
+  app = initializeApp({
     credential: cert({
       projectId: process.env.FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
       privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
     }),
   });
+} catch (e) {
+  if (!/already exists/u.test(e.message)) {
+    console.error('Firebase admin initialization error', e.stack);
+  }
 }
 
 const db = getFirestore();
