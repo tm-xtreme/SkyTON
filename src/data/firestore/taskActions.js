@@ -1,18 +1,17 @@
-
-import React from 'react';
 import { db } from '@/lib/firebase';
 import {
-  doc, getDoc, setDoc, updateDoc, collection, getDocs, query, orderBy,
-  deleteDoc // Ensure deleteDoc is imported here
+  doc, getDoc, setDoc, updateDoc,
+  collection, getDocs, query, orderBy,
+  deleteDoc
 } from "firebase/firestore";
 
-// Fetches all task definitions
-export const getTasks = async () => {
+// Fetch all task definitions (renamed for clarity)
+export const getAllTasks = async () => {
   const tasksColRef = collection(db, "tasks");
   try {
     const snapshot = await getDocs(query(tasksColRef, orderBy("title")));
     if (snapshot.empty) {
-      console.log("No tasks found in Firestore. Consider seeding.");
+      console.log("No tasks found in Firestore.");
       return [];
     }
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -22,61 +21,61 @@ export const getTasks = async () => {
   }
 };
 
-// Gets a single task definition
+// Get a single task by ID
 export const getTask = async (taskId) => {
-   if (!taskId) return null;
-   const taskRef = doc(db, "tasks", taskId);
-   try {
-     const taskSnap = await getDoc(taskRef);
-     return taskSnap.exists() ? { id: taskSnap.id, ...taskSnap.data() } : null;
-   } catch (error) {
-     console.error(`Error fetching task ${taskId}:`, error);
-     return null;
-   }
-}
-
-// Adds a new task definition
-export const addTask = async (taskData) => {
-   const taskId = taskData.id || `task_${taskData.title.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`;
-   const taskRef = doc(db, "tasks", taskId);
-   try {
-     const dataToSet = {
-       ...taskData,
-       reward: Number(taskData.reward) || 0,
-     };
-     delete dataToSet.id;
-     await setDoc(taskRef, dataToSet);
-     console.log(`Task ${taskId} added successfully.`);
-     return { id: taskId, ...dataToSet };
-   } catch (error) {
-     console.error(`Error adding task ${taskId}:`, error);
-     return null;
-   }
+  if (!taskId) return null;
+  const taskRef = doc(db, "tasks", taskId);
+  try {
+    const taskSnap = await getDoc(taskRef);
+    return taskSnap.exists() ? { id: taskSnap.id, ...taskSnap.data() } : null;
+  } catch (error) {
+    console.error(`Error fetching task ${taskId}:`, error);
+    return null;
+  }
 };
 
-// Updates a task definition
+// Add a new task
+export const addTask = async (taskData) => {
+  const taskId = taskData.id || `task_${taskData.title.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`;
+  const taskRef = doc(db, "tasks", taskId);
+  try {
+    const dataToSet = {
+      ...taskData,
+      reward: Number(taskData.reward) || 0,
+    };
+    delete dataToSet.id;
+    await setDoc(taskRef, dataToSet);
+    console.log(`Task ${taskId} added successfully.`);
+    return { id: taskId, ...dataToSet };
+  } catch (error) {
+    console.error(`Error adding task ${taskId}:`, error);
+    return null;
+  }
+};
+
+// Update an existing task
 export const updateTask = async (taskId, updates) => {
   if (!taskId) return false;
   const taskRef = doc(db, "tasks", taskId);
   try {
-      if (updates.reward !== undefined) {
-        updates.reward = Number(updates.reward) || 0;
-      }
-     await updateDoc(taskRef, updates);
-     console.log(`Task ${taskId} updated successfully.`);
-     return true;
+    if (updates.reward !== undefined) {
+      updates.reward = Number(updates.reward) || 0;
+    }
+    await updateDoc(taskRef, updates);
+    console.log(`Task ${taskId} updated successfully.`);
+    return true;
   } catch (error) {
-     console.error(`Error updating task ${taskId}:`, error);
-     return false;
+    console.error(`Error updating task ${taskId}:`, error);
+    return false;
   }
 };
 
-// Deletes a task definition
+// Delete a task
 export const deleteTask = async (taskId) => {
   if (!taskId) return false;
   const taskRef = doc(db, "tasks", taskId);
   try {
-    await deleteDoc(taskRef); // Use imported deleteDoc
+    await deleteDoc(taskRef);
     console.log(`Task ${taskId} deleted successfully.`);
     return true;
   } catch (error) {
@@ -84,4 +83,3 @@ export const deleteTask = async (taskId) => {
     return false;
   }
 };
-  
