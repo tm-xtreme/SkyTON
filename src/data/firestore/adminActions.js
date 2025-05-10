@@ -40,3 +40,39 @@ export const setUserAdminStatus = async (userId, isAdmin) => {
     return false;
   }
 };
+
+// Fetches all users with pending manual tasks
+export const getPendingVerifications = async () => {
+  const usersColRef = collection(db, "users");
+  try {
+    const q = query(usersColRef);
+    const snapshot = await getDocs(q);
+    const allUsers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    const pendingItems = [];
+
+    for (const user of allUsers) {
+      if (user.pendingVerificationTasks && user.pendingVerificationTasks.length > 0) {
+        for (const taskId of user.pendingVerificationTasks) {
+          pendingItems.push({
+            userId: user.id,
+            username: user.username || user.firstName || `User ${user.id}`,
+            taskId,
+            // task title and target will be resolved in AdminPage
+          });
+        }
+      }
+    }
+
+    return pendingItems;
+  } catch (error) {
+    console.error("Error fetching pending verifications:", error);
+    return [];
+  }
+};
+
+export {
+  getPendingVerifications,
+  setUserBanStatus,
+  setUserAdminStatus
+};
