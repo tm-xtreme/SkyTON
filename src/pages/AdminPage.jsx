@@ -7,7 +7,8 @@ import TaskManagementTab from '@/components/admin/TaskManagementTab';
 import PendingVerificationTab from '@/components/admin/PendingVerificationTab';
 import { UserContext } from '@/App';
 import { getAllUsers, toggleUserBanStatus } from '@/data/firestore/userActions';
-import { getAllTasks, createTask, updateTask, deleteTask } from '@/data/firestore/taskActions';
+import { getAllTasks, addTask, updateTask, deleteTask } from '@/data/firestore/taskActions';
+import { getPendingVerifications, approveTask, rejectTask } from '@/data/firestore/adminActions';
 import { Loader2, Users, ListChecks, CheckSquare } from 'lucide-react';
 
 const containerVariants = {
@@ -21,80 +22,80 @@ const containerVariants = {
 const AdminPage = () => {
   const { user } = useContext(UserContext);
   const [users, setUsers] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [pendingItems, setPendingItems] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loadingUsers, setLoadingUsers] = useState(true);
-
-  const [tasks, setTasks] = useState([]);
-  const [newTask, setNewTask] = useState({ title: '', description: '', reward: 0, active: true, type: '', verificationType: 'auto' });
+  const [loadingTasks, setLoadingTasks] = useState(true);
+  const [newTask, setNewTask] = useState({ title: '', description: '', reward: 0, type: 'telegram_join', target: '', verificationType: 'manual', active: true });
   const [editingTask, setEditingTask] = useState(null);
 
   useEffect(() => {
-    const fetchUsers = async () => {
+    const fetchData = async () => {
       setLoadingUsers(true);
-      const userList = await getAllUsers();
+      setLoadingTasks(true);
+      const [userList, taskList, pendingList] = await Promise.all([
+        getAllUsers(),
+        getAllTasks(),
+        getPendingVerifications()
+      ]);
       setUsers(userList || []);
-      setLoadingUsers(false);
-    };
-
-    const fetchTasks = async () => {
-      const taskList = await getAllTasks();
       setTasks(taskList || []);
+      setPendingItems(pendingList || []);
+      setLoadingUsers(false);
+      setLoadingTasks(false);
     };
 
-    fetchUsers();
-    fetchTasks();
+    fetchData();
   }, []);
 
   const handleBanToggle = async (telegramId, currentStatus) => {
     const updated = await toggleUserBanStatus(telegramId, !currentStatus);
     if (updated) {
-      setUsers(prev =>
-        prev.map(user =>
-          user.telegramId === telegramId ? { ...user, isBanned: !currentStatus } : user
-        )
-      );
+      setUsers(prev => prev.map(user => user.telegramId === telegramId ? { ...user, isBanned: !currentStatus } : user));
     }
   };
 
-  // Task Handlers
-  const handleNewTaskChange = (field, value) => {
-    setNewTask(prev => ({ ...prev, [field]: value }));
+  const handleNewTaskChange = (e) => {
+    const { name, value } = e.target;
+    setNewTask(prev => ({ ...prev, [name]: value }));
   };
 
   const handleNewTaskVerificationTypeChange = (value) => {
     setNewTask(prev => ({ ...prev, verificationType: value }));
   };
 
-  const handleAddTask = async () => {
-    const success = await createTask(newTask);
+  const handleAddTask = async (e) => {
+    e.preventDefault();
+    const success = await addTask(newTask);
     if (success) {
-      const taskList = await getAllTasks();
-      setTasks(taskList);
-      setNewTask({ title: '', description: '', reward: 0, active: true, type: '', verificationType: 'auto' });
+      const updatedTasks = await getAllTasks();
+      setTasks(updatedTasks);
+      setNewTask({ title: '', description: '', reward: 0, type: 'telegram_join', target: '', verificationType: 'manual', active: true });
     }
   };
 
-  const handleEditClick = (task) => {
-    setEditingTask(task);
-  };
+  const handleEditClick = (task) => setEditingTask(task);
 
-  const handleEditingTaskChange = (field, value) => {
-    setEditingTask(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleEditingTaskActiveChange = (value) => {
-    setEditingTask(prev => ({ ...prev, active: value }));
+  const handleEditingTaskChange = (e) => {
+    const { name, value } = e.target;
+    setEditingTask(prev => ({ ...prev, [name]: value }));
   };
 
   const handleEditingTaskVerificationTypeChange = (value) => {
     setEditingTask(prev => ({ ...prev, verificationType: value }));
   };
 
-  const handleUpdateTask = async () => {
+  const handleEditingTaskActiveChange = (checked) => {
+    setEditingTask(prev => ({ ...prev, active: checked }));
+  };
+
+  const handleUpdateTask = async (e) => {
+    e.preventDefault();
     const success = await updateTask(editingTask.id, editingTask);
     if (success) {
-      const taskList = await getAllTasks();
-      setTasks(taskList);
+      const updatedTasks = await getAllTasks();
+      setTasks(updatedTasks);
       setEditingTask(null);
     }
   };
@@ -102,18 +103,29 @@ const AdminPage = () => {
   const handleDeleteTask = async (taskId) => {
     const success = await deleteTask(taskId);
     if (success) {
-      const taskList = await getAllTasks();
-      setTasks(taskList);
+      const updatedTasks = await getAllTasks();
+      setTasks(updatedTasks);
+    }
+  };
+
+  const handleApprove = async (userId, taskId) => {
+    const success = await approveTask(userId, taskId);
+    if (success) {
+      const updatedPending = await getPendingVerifications();
+      setPendingItems(updatedPending);
+    }
+  };
+
+  const handleReject = async (userId, taskId) => {
+    const success = await rejectTask(userId, taskId);
+    if (success) {
+      const updatedPending = await getPendingVerifications();
+      setPendingItems(updatedPending);
     }
   };
 
   return (
-    <motion.div
-      className="space-y-6"
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-    >
+    <motion.div className="space-y-6" variants={containerVariants} initial="hidden" animate="visible">
       <Card>
         <CardHeader>
           <CardTitle className="text-2xl">Admin Panel</CardTitle>
@@ -167,7 +179,11 @@ const AdminPage = () => {
             </TabsContent>
 
             <TabsContent value="pending" className="mt-4">
-              <PendingVerificationTab />
+              <PendingVerificationTab
+                pendingItems={pendingItems}
+                onApprove={handleApprove}
+                onReject={handleReject}
+              />
             </TabsContent>
           </Tabs>
         </CardContent>
@@ -177,4 +193,3 @@ const AdminPage = () => {
 };
 
 export default AdminPage;
-                
