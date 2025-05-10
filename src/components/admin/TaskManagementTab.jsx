@@ -1,13 +1,11 @@
-
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import TaskForm from '@/components/admin/TaskForm';
 import TaskList from '@/components/admin/TaskList';
 
-// This component now orchestrates TaskForm and TaskList
-// It receives task definitions and handlers from AdminPage
+// This component orchestrates TaskForm and TaskList
 const TaskManagementTab = ({
-  tasks = [], // Task definitions from Firestore
+  tasks = [],
   newTask,
   editingTask,
   handleNewTaskChange,
@@ -28,41 +26,47 @@ const TaskManagementTab = ({
           <CardHeader>
             <CardTitle>{editingTask ? 'Edit Task' : 'Add New Task'}</CardTitle>
             <CardDescription>
-              {editingTask ? 'Modify the details of the existing task.' : 'Create a new task for users to complete.'}
+              {editingTask
+                ? 'Modify the details of the existing task.'
+                : 'Create a new task for users to complete.'}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <TaskForm
               taskData={editingTask || newTask}
               isEditing={!!editingTask}
-              onFormChange={editingTask ? handleEditingTaskChange : handleNewTaskChange}
-              onActiveChange={editingTask ? handleEditingTaskActiveChange : null} // Only for editing
-              onVerificationTypeChange={editingTask ? handleEditingTaskVerificationTypeChange : handleNewTaskVerificationTypeChange}
+              onChange={editingTask ? handleEditingTaskChange : handleNewTaskChange}
+              onActiveChange={editingTask ? handleEditingTaskActiveChange : undefined}
+              onVerificationTypeChange={
+                editingTask
+                  ? handleEditingTaskVerificationTypeChange
+                  : handleNewTaskVerificationTypeChange
+              }
               onSubmit={editingTask ? handleUpdateTask : handleAddTask}
-              onCancel={editingTask ? () => setEditingTask(null) : null} // Only for editing
+              onCancel={editingTask ? () => setEditingTask(null) : undefined}
             />
           </CardContent>
         </Card>
       </div>
 
       <div className="lg:col-span-2">
-         <Card>
-            <CardHeader>
-                <CardTitle>Current Tasks</CardTitle>
-                <CardDescription>Manage existing task definitions.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                 <TaskList
-                    tasks={tasks}
-                    onEdit={handleEditClick}
-                    onDelete={handleDeleteTask}
-                 />
-            </CardContent>
-         </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Current Tasks</CardTitle>
+            <CardDescription>Manage existing task definitions.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <TaskList
+              tasks={tasks}
+              onEditClick={handleEditClick}
+              onDeleteTask={handleDeleteTask}
+              isEditing={!!editingTask}
+            />
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
 };
 
-export default TaskManagementTab;
-  
+export default TaskManagementTab;  
