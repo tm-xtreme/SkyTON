@@ -6,7 +6,8 @@ import UserManagementTab from '@/components/admin/UserManagementTab';
 import TaskManagementTab from '@/components/admin/TaskManagementTab';
 import PendingVerificationTab from '@/components/admin/PendingVerificationTab';
 import { UserContext } from '@/App';
-import { getAllUsers, toggleUserBanStatus } from '@/data/firestore/userActions'; // Import Firestore utils
+import { getAllUsers, toggleUserBanStatus } from '@/data/firestore/userActions';
+import { getAllTasks, createTask, updateTask, deleteTask } from '@/data/firestore/taskActions';
 import { Loader2, Users, ListChecks, CheckSquare } from 'lucide-react';
 
 const containerVariants = {
@@ -23,6 +24,10 @@ const AdminPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [loadingUsers, setLoadingUsers] = useState(true);
 
+  const [tasks, setTasks] = useState([]);
+  const [newTask, setNewTask] = useState({ title: '', description: '', reward: 0, active: true, type: '', verificationType: 'auto' });
+  const [editingTask, setEditingTask] = useState(null);
+
   useEffect(() => {
     const fetchUsers = async () => {
       setLoadingUsers(true);
@@ -31,7 +36,13 @@ const AdminPage = () => {
       setLoadingUsers(false);
     };
 
+    const fetchTasks = async () => {
+      const taskList = await getAllTasks();
+      setTasks(taskList || []);
+    };
+
     fetchUsers();
+    fetchTasks();
   }, []);
 
   const handleBanToggle = async (telegramId, currentStatus) => {
@@ -42,6 +53,57 @@ const AdminPage = () => {
           user.telegramId === telegramId ? { ...user, isBanned: !currentStatus } : user
         )
       );
+    }
+  };
+
+  // Task Handlers
+  const handleNewTaskChange = (field, value) => {
+    setNewTask(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleNewTaskVerificationTypeChange = (value) => {
+    setNewTask(prev => ({ ...prev, verificationType: value }));
+  };
+
+  const handleAddTask = async () => {
+    const success = await createTask(newTask);
+    if (success) {
+      const taskList = await getAllTasks();
+      setTasks(taskList);
+      setNewTask({ title: '', description: '', reward: 0, active: true, type: '', verificationType: 'auto' });
+    }
+  };
+
+  const handleEditClick = (task) => {
+    setEditingTask(task);
+  };
+
+  const handleEditingTaskChange = (field, value) => {
+    setEditingTask(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleEditingTaskActiveChange = (value) => {
+    setEditingTask(prev => ({ ...prev, active: value }));
+  };
+
+  const handleEditingTaskVerificationTypeChange = (value) => {
+    setEditingTask(prev => ({ ...prev, verificationType: value }));
+  };
+
+  const handleUpdateTask = async () => {
+    const success = await updateTask(editingTask.id, editingTask);
+    if (success) {
+      const taskList = await getAllTasks();
+      setTasks(taskList);
+      setEditingTask(null);
+    }
+  };
+
+  const handleDeleteTask = async (taskId) => {
+    const success = await deleteTask(taskId);
+    if (success) {
+      const taskList = await getAllTasks();
+      setTasks(taskList);
     }
   };
 
@@ -87,7 +149,21 @@ const AdminPage = () => {
             </TabsContent>
 
             <TabsContent value="tasks" className="mt-4">
-              <TaskManagementTab />
+              <TaskManagementTab
+                tasks={tasks}
+                newTask={newTask}
+                editingTask={editingTask}
+                handleNewTaskChange={handleNewTaskChange}
+                handleNewTaskVerificationTypeChange={handleNewTaskVerificationTypeChange}
+                handleAddTask={handleAddTask}
+                handleEditingTaskChange={handleEditingTaskChange}
+                handleEditingTaskActiveChange={handleEditingTaskActiveChange}
+                handleEditingTaskVerificationTypeChange={handleEditingTaskVerificationTypeChange}
+                handleUpdateTask={handleUpdateTask}
+                setEditingTask={setEditingTask}
+                handleEditClick={handleEditClick}
+                handleDeleteTask={handleDeleteTask}
+              />
             </TabsContent>
 
             <TabsContent value="pending" className="mt-4">
@@ -101,3 +177,4 @@ const AdminPage = () => {
 };
 
 export default AdminPage;
+                
