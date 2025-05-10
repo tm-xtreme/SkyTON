@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router } from 'react-router-dom'; // Only Router needed now
+import { BrowserRouter as Router } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import DashboardPage from '@/pages/DashboardPage';
 import AdminPage from '@/pages/AdminPage';
-import Navigation from '@/components/layout/Navigation'; // Import Navigation
+import Navigation from '@/components/layout/Navigation';
 import { Toaster } from '@/components/ui/toaster';
-import { initializeAppData } from '@/data'; // Import the initializer
-import { Loader2 } from 'lucide-react'; // Loading indicator
+import { initializeAppData } from '@/data';
+import { Loader2 } from 'lucide-react';
 
-// Context to hold user data
 export const UserContext = React.createContext(null);
 
 const pageVariants = {
@@ -27,20 +26,20 @@ function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeView, setActiveView] = useState('home'); // Default view
-  const [adminVerified, setAdminVerified] = useState(false); // Track if admin password is verified
-  const [adminPassword, setAdminPassword] = useState(''); // Admin password state
+  const [activeView, setActiveView] = useState('home');
+  const [adminVerified, setAdminVerified] = useState(false);
+  const [adminPassword, setAdminPassword] = useState('');
 
   useEffect(() => {
     const loadAppData = async () => {
       try {
         setIsLoading(true);
         setError(null);
-        const userData = await initializeAppData(); // Fetch or create user
+        const userData = await initializeAppData();
         if (userData) {
           setCurrentUser(userData);
         } else {
-          setError("Could not load user data. Please ensure you're accessing this via the Telegram bot.");
+          setError("Could not load user data. Please access this via the Telegram bot.");
         }
       } catch (err) {
         console.error('Initialization error:', err);
@@ -51,41 +50,26 @@ function App() {
     };
 
     loadAppData();
-  }, []); // Run only once on mount
+  }, []);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background dark:bg-gray-900 text-primary">
-        <Loader2 className="h-12 w-12 animate-spin" />
-      </div>
-    );
-  }
+  const handleAdminLogin = async () => {
+    try {
+      const response = await fetch('/api/verifyAdmin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: adminPassword }),
+      });
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background dark:bg-gray-900 text-destructive p-4">
-        <p className="text-center">{error}</p>
-      </div>
-    );
-  }
-
-  // Only render routes if currentUser is successfully loaded
-  if (!currentUser) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background dark:bg-gray-900 text-destructive p-4">
-        <p className="text-center">User data could not be loaded. Please try again via the Telegram bot.</p>
-      </div>
-    );
-  }
-
-  const isAdmin = currentUser?.isAdmin === true; // Check admin status from loaded user data
-
-  const handleAdminLogin = () => {
-    if (adminPassword === process.env.VITE_ENV_ADMIN_CODE) {
-      setAdminVerified(true);
-      setError(null);
-    } else {
-      setError('Invalid admin password. Please try again.');
+      const result = await response.json();
+      if (result.success) {
+        setAdminVerified(true);
+        setError(null);
+      } else {
+        setError(result.message || 'Invalid password.');
+      }
+    } catch (err) {
+      console.error('Admin login error:', err);
+      setError('Server error. Please try again.');
     }
   };
 
@@ -97,9 +81,8 @@ function App() {
       case 'leaders':
         return <DashboardPage activeView={activeView} />;
       case 'admin':
-        if (isAdmin) {
+        if (currentUser?.isAdmin) {
           if (!adminVerified) {
-            // Prompt admin to enter the password
             return (
               <div className="min-h-screen flex flex-col items-center justify-center bg-background dark:bg-gray-900 text-primary p-4">
                 <h2 className="text-xl font-semibold mb-4">Admin Login</h2>
@@ -122,22 +105,36 @@ function App() {
           }
           return <AdminPage />;
         }
-        return <DashboardPage activeView={'home'} />; // Fallback to home if not admin
+        return <DashboardPage activeView="home" />;
       default:
-        return <DashboardPage activeView={'home'} />; // Default to home
+        return <DashboardPage activeView="home" />;
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background dark:bg-gray-900 text-primary">
+        <Loader2 className="h-12 w-12 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error && !currentUser) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background dark:bg-gray-900 text-destructive p-4">
+        <p className="text-center">{error}</p>
+      </div>
+    );
+  }
 
   return (
     <UserContext.Provider value={{ user: currentUser, setUser: setCurrentUser }}>
       <Router>
-        <div className="min-h-screen flex flex-col bg-background dark:bg-gray-900 pb-16"> {/* Add padding-bottom for nav */}
-
-          {/* Main Content Area with Animation */}
+        <div className="min-h-screen flex flex-col bg-background dark:bg-gray-900 pb-16">
           <main className="flex-grow container mx-auto px-4 py-8">
             <AnimatePresence mode="wait">
               <motion.div
-                key={activeView} // Key change triggers animation
+                key={activeView}
                 initial="initial"
                 animate="in"
                 exit="out"
@@ -148,9 +145,7 @@ function App() {
               </motion.div>
             </AnimatePresence>
           </main>
-
-          {/* Navigation Bar */}
-          <Navigation activeView={activeView} setActiveView={setActiveView} isAdmin={isAdmin} />
+          <Navigation activeView={activeView} setActiveView={setActiveView} isAdmin={currentUser?.isAdmin} />
         </div>
         <Toaster />
       </Router>
