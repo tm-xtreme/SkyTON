@@ -1,3 +1,8 @@
+// src/data/index.js
+
+import { db } from '@/lib/firebase';
+import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
+
 // Re-export initialization
 export { initializeAppData } from '@/data/storeInitialization';
 
@@ -11,9 +16,33 @@ export * from '@/data/leaderboardStore';
 export * from '@/data/defaults';
 export * from '@/data/telegramUtils';
 
-// Optionally, you can keep these commented if you plan to use specific actions separately
-// export * as userActions from '@/data/firestore/userActions';
-// export * as taskActions from '@/data/firestore/taskActions';
-// export * as adminActions from '@/data/firestore/adminActions';
-// export * as leaderboardActions from '@/data/firestore/leaderboardActions';
-// export * as initActions from '@/data/firestore/initActions';
+// Firestore function for leaderboard data
+export const getLeaderboardData = async () => {
+  try {
+    const q = query(
+      collection(db, 'users'),
+      orderBy('referrals', 'desc'),
+      limit(20)
+    );
+
+    const querySnapshot = await getDocs(q);
+    const data = [];
+
+    querySnapshot.forEach(doc => {
+      const user = doc.data();
+      data.push({
+        id: doc.id,
+        username: user.username || '',
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        referrals: user.referrals || 0,
+        profilePicUrl: user.profilePicUrl || null
+      });
+    });
+
+    return data;
+  } catch (error) {
+    console.error('Failed to fetch leaderboard:', error);
+    return [];
+  }
+};
