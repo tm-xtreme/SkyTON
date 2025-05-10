@@ -14,40 +14,46 @@ export default async function handler(req, res) {
   }
 
   try {
-    const newUserRef = db.collection('users').doc(newUserId);
-    const referredByRef = db.collection('users').doc(referredById);
+    const usersRef = db.collection('users');
+    const tasksRef = db.collection('tasks');
 
-    const [newUserSnap, referredBySnap] = await Promise.all([
+    const newUserRef = usersRef.doc(newUserId);
+    const referredByRef = usersRef.doc(referredById);
+    const referTaskRef = tasksRef.doc('task_refer_friend');
+
+    const [newUserSnap, referredBySnap, referTaskSnap] = await Promise.all([
       newUserRef.get(),
-      referredByRef.get()
+      referredByRef.get(),
+      referTaskRef.get()
     ]);
 
     if (!referredBySnap.exists) {
       return res.status(404).json({ success: false, message: 'Referrer not found.' });
     }
 
-    // If user doesn't exist, create with default structure
-    if (!newUserSnap.exists) {
-      await newUserRef.set(defaultFirestoreUser(newUserId, null, null, null, referredById));
-    } else {
-      const newUserData = newUserSnap.data();
-      if (newUserData.invitedBy) {
-        return res.status(409).json({ success: false, message: 'User already referred by someone.' });
-      }
-
-      await newUserRef.update({ invitedBy: referredById });
+    if (!referTaskSnap.exists) {
+      return res.status(500).json({ success: false, message: 'Referral task config missing.' });
     }
 
-    // Update the referrer
+    const rewardAmount = referTaskSnap.data().reward || 0;
+
+    if (newUserSnap.exists) {
+      return res.status(409).json({ success: false, message: 'User already joined.' });
+    }
+
+    // Create the new user with referral metadata
+    await newUserRef.set(defaultFirestoreUser(newUserId, null, null, null, referredById));
+
+    // Update referrer’s stats with dynamic reward
     await referredByRef.update({
       referrals: FieldValue.increment(1),
-      balance: FieldValue.increment(50),
+      balance: FieldValue.increment(rewardAmount),
       referredUsers: FieldValue.arrayUnion(newUserId)
     });
 
     return res.status(200).json({
       success: true,
-      message: 'Referral processed successfully.'
+      message: `Referral successful. ${rewardAmount} STON rewarded to referrer.`
     });
 
   } catch (error) {
