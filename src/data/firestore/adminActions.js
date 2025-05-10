@@ -1,8 +1,15 @@
 import { db } from '@/lib/firebase';
 import {
-  doc, updateDoc, collection, getDocs, query, orderBy
+  collection,
+  getDocs,
+  query,
+  orderBy
 } from "firebase/firestore";
-import { updateUser } from '@/data/firestore/userActions';
+import {
+  updateUser,
+  completeTaskForUser,
+  rejectManualVerificationForUser
+} from '@/data/firestore/userActions';
 
 // Fetch all users, ordered by join date
 export const getAllUsers = async () => {
@@ -45,20 +52,19 @@ export const setUserAdminStatus = async (userId, isAdmin) => {
 export const getPendingVerifications = async () => {
   const usersColRef = collection(db, "users");
   try {
-    const q = query(usersColRef);
-    const snapshot = await getDocs(q);
+    const snapshot = await getDocs(query(usersColRef));
     const allUsers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
     const pendingItems = [];
 
     for (const user of allUsers) {
-      if (user.pendingVerificationTasks && user.pendingVerificationTasks.length > 0) {
+      if (Array.isArray(user.pendingVerificationTasks) && user.pendingVerificationTasks.length > 0) {
         for (const taskId of user.pendingVerificationTasks) {
           pendingItems.push({
             userId: user.id,
             username: user.username || user.firstName || `User ${user.id}`,
-            taskId,
-            // task title and target will be resolved in AdminPage
+            taskId
+            // Task details will be filled in AdminPage
           });
         }
       }
@@ -69,4 +75,14 @@ export const getPendingVerifications = async () => {
     console.error("Error fetching pending verifications:", error);
     return [];
   }
+};
+
+// Approve a task (mark it complete and reward user)
+export const approveTask = async (userId, taskId) => {
+  return await completeTaskForUser(userId, taskId);
+};
+
+// Reject a task (remove it from pending list)
+export const rejectTask = async (userId, taskId) => {
+  return await rejectManualVerificationForUser(userId, taskId);
 };
