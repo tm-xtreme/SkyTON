@@ -1,15 +1,13 @@
-
-import React from 'react';
 import {
-  getTasks,
+  getAllTasks as getTasksFromDB,
   addTask,
   updateTask,
   deleteTask
-} from '@/data/firestore/taskActions'; // Updated import path
+} from '@/data/firestore/taskActions';
 
 // Fetches all task definitions from Firestore
 export const getAllTasks = async () => {
-  return await getTasks();
+  return await getTasksFromDB();
 };
 
 // Adds a new task definition to Firestore
@@ -26,4 +24,3 @@ export const updateExistingTask = async (taskId, updates) => {
 export const deleteExistingTask = async (taskId) => {
   return await deleteTask(taskId);
 };
-  
