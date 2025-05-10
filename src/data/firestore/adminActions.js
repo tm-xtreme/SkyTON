@@ -1,12 +1,10 @@
-
-import React from 'react';
 import { db } from '@/lib/firebase';
 import {
   doc, updateDoc, collection, getDocs, query, orderBy
 } from "firebase/firestore";
-import { updateUser } from '@/data/firestore/userActions'; // Import from new location
+import { updateUser } from '@/data/firestore/userActions';
 
-// Fetches all users
+// Fetch all users, ordered by join date
 export const getAllUsers = async () => {
   const usersColRef = collection(db, "users");
   try {
@@ -19,13 +17,26 @@ export const getAllUsers = async () => {
   }
 };
 
-// Bans or unbans a user
+// Toggle ban status for a user
 export const setUserBanStatus = async (userId, isBanned) => {
-  return await updateUser(userId, { isBanned: isBanned });
+  try {
+    await updateUser(userId, { isBanned });
+    console.log(`User ${userId} ban status set to: ${isBanned}`);
+    return true;
+  } catch (error) {
+    console.error(`Error updating ban status for user ${userId}:`, error);
+    return false;
+  }
 };
 
-// Sets admin status
+// Toggle admin status for a user
 export const setUserAdminStatus = async (userId, isAdmin) => {
-   return await updateUser(userId, { isAdmin: isAdmin });
+  try {
+    await updateUser(userId, { isAdmin });
+    console.log(`User ${userId} admin status set to: ${isAdmin}`);
+    return true;
+  } catch (error) {
+    console.error(`Error updating admin status for user ${userId}:`, error);
+    return false;
+  }
 };
-  
