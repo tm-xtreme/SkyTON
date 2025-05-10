@@ -1,5 +1,5 @@
 import { db } from '../src/lib/serverFirebase.js';
-import { doc, getDoc, setDoc, updateDoc, increment, arrayUnion } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, increment, arrayUnion } from 'firebase-admin/firestore';
 import { defaultFirestoreUser } from '../src/data/defaults.js';
 
 export default async function handler(req, res) {
