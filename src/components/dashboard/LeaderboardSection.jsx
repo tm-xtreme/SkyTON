@@ -1,10 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { getLeaderboardData } from '@/data'; // Use Firestore function for leaderboard
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from '@/components/ui/table';
+import { getLeaderboardData } from '@/data'; // Uses updated src/data/index.js
 import { Loader2, Trophy } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage
+} from '@/components/ui/avatar';
 import { cn } from "@/lib/utils";
 
 const itemVariants = {
@@ -17,14 +34,14 @@ const LeaderboardSection = ({ currentUserTelegramId }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchLeaderboard = async () => {
+    const fetchData = async () => {
       setIsLoading(true);
-      const data = await getLeaderboardData(); // Fetch leaderboard data
+      const data = await getLeaderboardData();
       setLeaderboard(data || []);
       setIsLoading(false);
     };
 
-    fetchLeaderboard();
+    fetchData();
   }, []);
 
   const getRankSuffix = (rank) => {
@@ -36,14 +53,10 @@ const LeaderboardSection = ({ currentUserTelegramId }) => {
 
   const getRankColor = (rank) => {
     switch (rank) {
-      case 1:
-        return "text-yellow-400";
-      case 2:
-        return "text-gray-400";
-      case 3:
-        return "text-yellow-600";
-      default:
-        return "text-muted-foreground";
+      case 1: return "text-yellow-400";
+      case 2: return "text-gray-400";
+      case 3: return "text-yellow-600";
+      default: return "text-muted-foreground";
     }
   };
 
@@ -74,7 +87,11 @@ const LeaderboardSection = ({ currentUserTelegramId }) => {
                 {leaderboard.map((user, index) => {
                   const rank = index + 1;
                   const isCurrentUser = user.id === currentUserTelegramId;
-                  const displayName = user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.username || `User ${user.id.substring(0, 6)}`;
+                  const displayName = user.firstName
+                    ? `${user.firstName} ${user.lastName || ''}`.trim()
+                    : user.username || `User ${user.id}`;
+                  const profileImg = user.profilePicUrl ||
+                    `https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQB_4gKwn8q2WBPTwnV14Jmh3B5g56SCiGEBA&usqp=CAU`;
                   const fallbackAvatar = displayName?.substring(0, 2).toUpperCase() || 'U';
 
                   return (
@@ -88,7 +105,7 @@ const LeaderboardSection = ({ currentUserTelegramId }) => {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Avatar className="h-8 w-8 border">
-                            <AvatarImage src={user.profilePicUrl || `https://avatar.vercel.sh/${user.username || user.id}.png?size=32`} alt={user.username || user.id} />
+                            <AvatarImage src={profileImg} alt={displayName} />
                             <AvatarFallback>{fallbackAvatar}</AvatarFallback>
                           </Avatar>
                           <span className="font-medium truncate max-w-[150px] sm:max-w-xs">{displayName}</span>
