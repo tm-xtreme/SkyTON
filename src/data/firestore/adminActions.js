@@ -71,8 +71,9 @@ export const getPendingVerifications = async () => {
   }
 };
 
-export {
-  getPendingVerifications,
-  setUserBanStatus,
-  setUserAdminStatus
+// Single export statement for all functions
+export { 
+  getPendingVerifications, 
+  setUserBanStatus, 
+  setUserAdminStatus 
 };
