@@ -1,10 +1,18 @@
 import { db } from '../src/lib/serverFirebase.js';
-import { doc, getDoc, setDoc, updateDoc, increment, arrayUnion } from 'firebase-admin/firestore';
+import {
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  increment,
+  arrayUnion
+} from 'firebase-admin/firestore';
 import { defaultFirestoreUser } from '../src/data/defaults.js';
 
 export default async function handler(req, res) {
   const { api, new: newUserId, referreby: referredById } = req.query;
 
+  // Validate API key
   if (!api || api !== process.env.ADMIN_API_KEY) {
     return res.status(403).json({ success: false, message: 'Invalid API key.' });
   }
@@ -26,7 +34,7 @@ export default async function handler(req, res) {
       return res.status(404).json({ success: false, message: 'Referrer not found.' });
     }
 
-    // If new user doesn't exist, create a blank user with referral data
+    // If new user doesn't exist, create with basic fields
     if (!newUserSnap.exists()) {
       await setDoc(newUserRef, defaultFirestoreUser(newUserId, null, null, null, referredById));
     } else {
@@ -40,10 +48,10 @@ export default async function handler(req, res) {
       });
     }
 
-    // Update referrer
+    // Update referrer info
     await updateDoc(referredByRef, {
       referrals: increment(1),
-      balance: increment(50),
+      balance: increment(50), // You can make this dynamic later
       referredUsers: arrayUnion(newUserId)
     });
 
