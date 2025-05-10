@@ -27,7 +27,9 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeView, setActiveView] = useState('home');
-  const [adminVerified, setAdminVerified] = useState(false);
+  const [adminVerified, setAdminVerified] = useState(() => {
+    return localStorage.getItem("adminVerified") === "true";
+  });
   const [adminPassword, setAdminPassword] = useState('');
 
   useEffect(() => {
@@ -39,7 +41,7 @@ function App() {
         if (userData) {
           setCurrentUser(userData);
         } else {
-          setError("Could not load user data. Please access this via the Telegram bot.");
+          setError("Could not load user data. Please ensure you're accessing this via the Telegram bot.");
         }
       } catch (err) {
         console.error('Initialization error:', err);
@@ -52,6 +54,32 @@ function App() {
     loadAppData();
   }, []);
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background dark:bg-gray-900 text-primary">
+        <Loader2 className="h-12 w-12 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background dark:bg-gray-900 text-destructive p-4">
+        <p className="text-center">{error}</p>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background dark:bg-gray-900 text-destructive p-4">
+        <p className="text-center">User data could not be loaded. Please try again via the Telegram bot.</p>
+      </div>
+    );
+  }
+
+  const isAdmin = currentUser?.isAdmin === true;
+
   const handleAdminLogin = async () => {
     try {
       const response = await fetch('/api/verifyAdmin', {
@@ -63,6 +91,8 @@ function App() {
       const result = await response.json();
       if (result.success) {
         setAdminVerified(true);
+        localStorage.setItem("adminVerified", "true");
+        sessionStorage.setItem("adminSession", "true");
         setError(null);
       } else {
         setError(result.message || 'Invalid password.');
@@ -73,6 +103,12 @@ function App() {
     }
   };
 
+  const handleLogout = () => {
+    setAdminVerified(false);
+    localStorage.removeItem("adminVerified");
+    sessionStorage.removeItem("adminSession");
+  };
+
   const renderView = () => {
     switch (activeView) {
       case 'home':
@@ -81,8 +117,8 @@ function App() {
       case 'leaders':
         return <DashboardPage activeView={activeView} />;
       case 'admin':
-        if (currentUser?.isAdmin) {
-          if (!adminVerified) {
+        if (isAdmin) {
+          if (!adminVerified && sessionStorage.getItem("adminSession") !== "true") {
             return (
               <div className="min-h-screen flex flex-col items-center justify-center bg-background dark:bg-gray-900 text-primary p-4">
                 <h2 className="text-xl font-semibold mb-4">Admin Login</h2>
@@ -103,29 +139,20 @@ function App() {
               </div>
             );
           }
-          return <AdminPage />;
+          return (
+            <>
+              <AdminPage />
+              <div className="text-center py-2">
+                <button onClick={handleLogout} className="text-sm text-red-500">Logout</button>
+              </div>
+            </>
+          );
         }
-        return <DashboardPage activeView="home" />;
+        return <DashboardPage activeView={'home'} />;
       default:
-        return <DashboardPage activeView="home" />;
+        return <DashboardPage activeView={'home'} />;
     }
   };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background dark:bg-gray-900 text-primary">
-        <Loader2 className="h-12 w-12 animate-spin" />
-      </div>
-    );
-  }
-
-  if (error && !currentUser) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background dark:bg-gray-900 text-destructive p-4">
-        <p className="text-center">{error}</p>
-      </div>
-    );
-  }
 
   return (
     <UserContext.Provider value={{ user: currentUser, setUser: setCurrentUser }}>
@@ -145,7 +172,8 @@ function App() {
               </motion.div>
             </AnimatePresence>
           </main>
-          <Navigation activeView={activeView} setActiveView={setActiveView} isAdmin={currentUser?.isAdmin} />
+
+          <Navigation activeView={activeView} setActiveView={setActiveView} isAdmin={isAdmin} />
         </div>
         <Toaster />
       </Router>
