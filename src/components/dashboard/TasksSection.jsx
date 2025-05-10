@@ -92,9 +92,11 @@ const TasksSection = ({ tasks = [], user, refreshUserData }) => {
         <CardContent>
           <div className="space-y-4">
             {tasks.filter(t => t.active).map((task) => {
-              const isCompleted = user.tasks?.[task.id] === true;
-              const isPending = user.pendingVerificationTasks?.includes(task.id);
               const isCheckInTask = task.type === 'daily_checkin';
+              const isCompleted = isCheckInTask
+                ? checkInDone
+                : user.tasks?.[task.id] === true;
+              const isPending = user.pendingVerificationTasks?.includes(task.id);
               const isDisabled = isCheckInTask ? checkInDone : (isCompleted || isPending);
 
               return (
