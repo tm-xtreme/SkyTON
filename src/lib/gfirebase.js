@@ -1,14 +1,7 @@
-// src/lib/gfirebase.js
+import { db } from '@/lib/firebase';
+import { doc, getDoc, updateDoc, increment } from 'firebase/firestore';
 
-import { getApps, getApp, initializeApp } from "firebase/app";
-import { getFirestore, doc, getDoc, updateDoc, increment } from "firebase/firestore";
-import firebaseConfig from "@/firebaseConfig";
-
-// Use existing Firebase app if already initialized
-const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-// Game-specific Firestore operations
+// Get user's energy
 export const getUserEnergy = async (userId) => {
   if (!userId) return 0;
   try {
@@ -21,13 +14,12 @@ export const getUserEnergy = async (userId) => {
   }
 };
 
+// Update user's energy
 export const updateUserEnergy = async (userId, amount) => {
   if (!userId) return false;
   try {
     const userDocRef = doc(db, "users", userId);
-    await updateDoc(userDocRef, {
-      energy: increment(amount),
-    });
+    await updateDoc(userDocRef, { energy: increment(amount) });
     return true;
   } catch (error) {
     console.error("Error updating user energy:", error);
@@ -35,4 +27,15 @@ export const updateUserEnergy = async (userId, amount) => {
   }
 };
 
-export { db };
+// Update user's balance (add earned STON)
+export const updateUserBalance = async (userId, amount) => {
+  if (!userId || typeof amount !== 'number') return false;
+  try {
+    const userDocRef = doc(db, "users", userId);
+    await updateDoc(userDocRef, { balance: increment(amount) });
+    return true;
+  } catch (error) {
+    console.error("Error updating user balance:", error);
+    return false;
+  }
+};
