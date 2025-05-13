@@ -16,24 +16,30 @@ function StonGamePage() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const [userData, setUserData] = useState({ id: '', name: 'Player', balance: 0, profilePicUrl: '' });
-  const [energy, setEnergy] = useState(0);
+  const [userData, setUserData] = useState({
+    id: '',
+    firstName: 'Player',
+    profilePicUrl: '',
+    balance: 0,
+    energy: 0
+  });
+
   const [score, setScore] = useState(0);
   const [shotsLeft, setShotsLeft] = useState(SHOTS_PER_GAME);
   const [isGameActive, setIsGameActive] = useState(false);
   const [gem, setGem] = useState(null);
 
-  // Firestore helpers
-  const getUser = async (userId) => {
-    if (!userId) return null;
+  const getUserData = async (userId) => {
     try {
       const ref = doc(db, 'users', userId);
       const snap = await getDoc(ref);
-      return snap.exists() ? { id: userId, ...snap.data() } : null;
-    } catch (e) {
-      console.error('Error fetching user:', e);
-      return null;
+      if (snap.exists()) {
+        return { id: userId, ...snap.data() };
+      }
+    } catch (err) {
+      console.error('Error loading user data:', err);
     }
+    return null;
   };
 
   const updateUserEnergy = async (userId, amount) => {
@@ -41,8 +47,8 @@ function StonGamePage() {
       const ref = doc(db, 'users', userId);
       await updateDoc(ref, { energy: increment(amount) });
       return true;
-    } catch (e) {
-      console.error('Error updating energy:', e);
+    } catch (err) {
+      console.error('Energy update error:', err);
       return false;
     }
   };
@@ -52,8 +58,8 @@ function StonGamePage() {
       const ref = doc(db, 'users', userId);
       await updateDoc(ref, { balance: increment(amount) });
       return true;
-    } catch (e) {
-      console.error('Error updating balance:', e);
+    } catch (err) {
+      console.error('Balance update error:', err);
       return false;
     }
   };
@@ -62,11 +68,8 @@ function StonGamePage() {
     const searchParams = new URLSearchParams(location.search);
     const id = searchParams.get('id') || '';
     if (id) {
-      getUser(id).then((data) => {
-        if (data) {
-          setUserData(data);
-          setEnergy(data.energy || 0);
-        }
+      getUserData(id).then((data) => {
+        if (data) setUserData(data);
       });
     }
   }, [location.search]);
@@ -80,63 +83,56 @@ function StonGamePage() {
       id: Date.now(),
       value: Math.floor(Math.random() * 10) + 1,
       x: Math.random() * 80 + 10,
-      y: -10,
+      y: -10
     });
   }, [shotsLeft]);
 
-  const startGame = async () => {
-    if (energy < Math.abs(ENERGY_COST_PER_GAME)) {
+  const startGame = () => {
+    if (userData.energy < Math.abs(ENERGY_COST_PER_GAME)) {
       toast({
         title: 'Not enough energy!',
         description: `You need ${Math.abs(ENERGY_COST_PER_GAME)} energy to play.`,
-        variant: 'destructive',
+        variant: 'destructive'
       });
       return;
     }
-    setIsGameActive(true);
+
     setScore(0);
     setShotsLeft(SHOTS_PER_GAME);
+    setIsGameActive(true);
     startNewGem();
   };
 
   const endGame = useCallback(async () => {
     setIsGameActive(false);
     setGem(null);
+
     if (userData.id) {
-      const energyUpdated = await updateUserEnergy(userData.id, ENERGY_COST_PER_GAME);
-      const balanceUpdated = await updateUserBalance(userData.id, score);
-      if (energyUpdated && balanceUpdated) {
-        const updated = await getUser(userData.id);
-        if (updated) {
-          setUserData(updated);
-          setEnergy(updated.energy);
-        }
-        toast({
-          title: 'Game Over!',
-          description: `You scored ${score} STON!`,
-        });
+      const energyOk = await updateUserEnergy(userData.id, ENERGY_COST_PER_GAME);
+      const balanceOk = await updateUserBalance(userData.id, score);
+      if (energyOk && balanceOk) {
+        const updatedUser = await getUserData(userData.id);
+        if (updatedUser) setUserData(updatedUser);
+        toast({ title: 'Game Over!', description: `You earned ${score} STON.` });
       } else {
-        toast({
-          title: 'Error',
-          description: 'Failed to update energy or balance.',
-          variant: 'destructive',
-        });
+        toast({ title: 'Error', description: 'Failed to update balance or energy.', variant: 'destructive' });
       }
     }
-  }, [score, userData.id, toast]);
+  }, [userData.id, score]);
 
   const handleShoot = () => {
     if (!isGameActive || !gem || shotsLeft <= 0) return;
     setShotsLeft((prev) => prev - 1);
+
     const gemEl = document.getElementById(`gem-${gem.id}`);
     const area = document.getElementById('game-area');
     if (!gemEl || !area) return;
 
     const gemBottom = gemEl.getBoundingClientRect().bottom - area.getBoundingClientRect().top;
-    const catchTop = area.clientHeight * 0.6;
-    const catchBottom = area.clientHeight * 0.9;
+    const zoneTop = area.clientHeight * 0.6;
+    const zoneBottom = area.clientHeight * 0.9;
 
-    if (gemBottom > catchTop && gemBottom < catchBottom) {
+    if (gemBottom > zoneTop && gemBottom < zoneBottom) {
       setScore((prev) => prev + gem.value);
       toast({ title: 'Caught!', description: `+${gem.value} STON!` });
     }
@@ -152,7 +148,7 @@ function StonGamePage() {
     if (!isGameActive) return;
     setShotsLeft((prev) => prev - 1);
     setGem(null);
-    if (shotsLeft > 1) setTimeout(startNewGem, 200);
+    if (shotsLeft > 1) setTimeout(startNewGem, 300);
     else setTimeout(endGame, 300);
   };
 
@@ -164,16 +160,16 @@ function StonGamePage() {
         </Button>
       </div>
 
-      <div className="game-container">
+      <div className="game-container pt-4">
         <div className="game-header flex justify-between items-center p-4">
           <div className="flex items-center space-x-3">
             {userData.profilePicUrl ? (
-              <img src={userData.profilePicUrl} alt={userData.name} className="w-12 h-12 rounded-full border-2 border-sky-400 shadow-lg" />
+              <img src={userData.profilePicUrl} alt={userData.firstName} className="w-12 h-12 rounded-full border-2 border-sky-400 shadow-lg" />
             ) : (
               <UserCircle className="w-12 h-12 text-sky-400" />
             )}
             <div>
-              <p className="game-header-text text-base font-bold">{userData.name}</p>
+              <p className="game-header-text text-base font-bold">{userData.firstName}</p>
               <div className="flex items-center text-sm game-balance">
                 <DollarSign className="w-4 h-4 mr-1" /> {userData.balance}
               </div>
@@ -181,12 +177,12 @@ function StonGamePage() {
           </div>
           <div className="game-energy flex items-center space-x-2 px-4 py-2 rounded-lg">
             <Zap className="w-7 h-7 text-yellow-400" />
-            <span className="text-2xl font-bold text-yellow-100">{energy}</span>
+            <span className="text-2xl font-bold text-yellow-100">{userData.energy}</span>
           </div>
         </div>
 
         <div className="game-content">
-          <div className="w-full max-w-md mx-auto">
+          <div className="w-full max-w-md mx-auto pb-16">
             <h1 className="game-title text-4xl font-bold text-center mb-2">STON Game</h1>
             <p className="game-subtitle text-center mb-4">Catch the falling STONs before they disappear!</p>
 
@@ -230,18 +226,15 @@ function StonGamePage() {
             {!isGameActive ? (
               <Button
                 onClick={startGame}
-                className="w-full text-lg py-6 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-bold shadow-lg"
-                disabled={energy < Math.abs(ENERGY_COST_PER_GAME)}
+                className="w-full text-lg py-6 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold shadow-lg"
               >
-                {energy < Math.abs(ENERGY_COST_PER_GAME)
-                  ? `Need ${Math.abs(ENERGY_COST_PER_GAME)} Energy`
-                  : 'Start Game'}
+                Start Game
               </Button>
             ) : (
               <Button
                 onClick={handleShoot}
-                className="w-full text-lg py-6 bg-gradient-to-r from-sky-500 to-cyan-600 hover:from-sky-600 hover:to-cyan-700 text-white font-bold shadow-lg"
-                disabled={shotsLeft <= 0 || !gem}
+                className="w-full text-lg py-6 bg-gradient-to-r from-sky-500 to-cyan-600 text-white font-bold shadow-lg"
+                disabled={!gem || shotsLeft <= 0}
               >
                 Shoot!
               </Button>
