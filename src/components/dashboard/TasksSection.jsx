@@ -16,7 +16,6 @@ import {
 import {
   CheckCircle, CalendarCheck, HelpCircle, Clock, Gamepad2
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 
 const itemVariants = {
   hidden: { opacity: 0, y: 10 },
@@ -25,7 +24,19 @@ const itemVariants = {
 
 const TasksSection = ({ tasks = [], user, refreshUserData }) => {
   const { toast } = useToast();
-  const navigate = useNavigate();
+
+  const handlePlayGame = () => {
+    if (user?.id) {
+      sessionStorage.setItem('gameUserId', user.id);
+      window.open('/game', '_blank');
+    } else {
+      toast({
+        title: "Error",
+        description: "User ID not found. Please reload via Telegram.",
+        variant: "destructive"
+      });
+    }
+  };
 
   const handleVerificationClick = async (task) => {
     if (!user?.id || !task?.id) return;
@@ -89,15 +100,14 @@ const TasksSection = ({ tasks = [], user, refreshUserData }) => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-
-            {/* Play Now Button at the Top */}
+            {/* Play Now Button */}
             <div className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg">
               <div className="flex-1 mr-2">
                 <p className="font-semibold">Play Game</p>
                 <p className="text-xs text-muted-foreground">Play and earn STON by winning points!</p>
               </div>
               <div className="flex-shrink-0">
-                <Button size="sm" onClick={() => navigate('/game')}>
+                <Button size="sm" onClick={handlePlayGame}>
                   <Gamepad2 className="mr-2 h-4 w-4" /> Play Now
                 </Button>
               </div>
@@ -161,7 +171,6 @@ const TasksSection = ({ tasks = [], user, refreshUserData }) => {
                 </div>
               );
             })}
-
           </div>
         </CardContent>
       </Card>
