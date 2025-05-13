@@ -1,15 +1,18 @@
-
 import React from 'react';
 import { Home, ListChecks, Users, Trophy, ShieldCheck } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
-const Navigation = ({ activeView, setActiveView, isAdmin }) => {
+const Navigation = ({ isAdmin }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const navItems = [
-    { name: 'home', label: 'Home', icon: Home },
-    { name: 'tasks', label: 'Tasks', icon: ListChecks },
-    { name: 'invite', label: 'Invite', icon: Users },
-    { name: 'leaders', label: 'Leaders', icon: Trophy },
-    ...(isAdmin ? [{ name: 'admin', label: 'Admin', icon: ShieldCheck }] : []),
+    { path: '/', label: 'Home', icon: Home },
+    { path: '/tasks', label: 'Tasks', icon: ListChecks },
+    { path: '/invite', label: 'Invite', icon: Users },
+    { path: '/leaders', label: 'Leaders', icon: Trophy },
+    ...(isAdmin ? [{ path: '/admin', label: 'Admin', icon: ShieldCheck }] : []),
   ];
 
   return (
@@ -17,11 +20,11 @@ const Navigation = ({ activeView, setActiveView, isAdmin }) => {
       <div className="flex justify-around items-center h-16 max-w-screen-md mx-auto px-2">
         {navItems.map((item) => (
           <button
-            key={item.name}
-            onClick={() => setActiveView(item.name)}
+            key={item.path}
+            onClick={() => navigate(item.path)}
             className={cn(
               "flex flex-col items-center justify-center text-xs w-16 h-full transition-colors duration-200 ease-in-out",
-              activeView === item.name
+              location.pathname === item.path
                 ? 'text-primary font-semibold'
                 : 'text-muted-foreground hover:text-foreground'
             )}
@@ -36,4 +39,3 @@ const Navigation = ({ activeView, setActiveView, isAdmin }) => {
 };
 
 export default Navigation;
-  
