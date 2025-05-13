@@ -70,14 +70,14 @@
     @apply border-border;
   }
 
+  html, body, #root {
+    @apply h-full;
+  }
+
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
     background: linear-gradient(135deg, hsl(var(--background)) 0%, hsl(var(--accent) / 0.1) 100%);
-  }
-
-  html, body, #root {
-    @apply h-full;
   }
 }
 
@@ -92,6 +92,7 @@
   left: 0;
   right: 0;
   bottom: 0;
+  z-index: 50;
 }
 
 .game-container {
@@ -99,6 +100,7 @@
   display: grid;
   grid-template-rows: auto 1fr auto;
   overflow: hidden;
+  padding-bottom: 0;
 }
 
 .game-content {
@@ -188,4 +190,4 @@
 /* ===================== EXTRAS ===================== */
 .glass-card {
   @apply bg-card/70 backdrop-blur-lg border border-border/20 shadow-lg;
-                         }
+}
