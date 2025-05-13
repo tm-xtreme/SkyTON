@@ -144,9 +144,14 @@ function StonGamePage() {
 
   return (
     <div className="ston-game-bg">
-      <div className="absolute top-2 left-2 z-50">
-        <Button size="icon" variant="ghost" onClick={() => navigate('/tasks')}>
-          <ArrowLeft className="h-5 w-5" />
+      <div className="absolute top-3 left-3 z-40">
+        <Button 
+          size="icon"
+          variant="ghost"
+          className="bg-slate-800/80 hover:bg-slate-700/90 rounded-full shadow-md"
+          onClick={() => navigate('/tasks')}
+          >
+          <ArrowLeft className="h-4 w-4 text-white" />
         </Button>
       </div>
 
