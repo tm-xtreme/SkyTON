@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+  useLocation
+} from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import DashboardPage from '@/pages/DashboardPage';
 import AdminPage from '@/pages/AdminPage';
@@ -23,7 +29,15 @@ const pageTransition = {
   duration: 0.4,
 };
 
-function AppContent({ isAdmin, adminVerified, setAdminVerified, handleAdminLogin, adminPassword, setAdminPassword, handleLogout }) {
+function AppContent({
+  isAdmin,
+  adminVerified,
+  setAdminVerified,
+  handleAdminLogin,
+  adminPassword,
+  setAdminPassword,
+  handleLogout
+}) {
   const location = useLocation();
 
   return (
@@ -49,7 +63,9 @@ function AppContent({ isAdmin, adminVerified, setAdminVerified, handleAdminLogin
                 <>
                   <AdminPage />
                   <div className="text-center py-2">
-                    <button onClick={handleLogout} className="text-sm text-red-500">Logout</button>
+                    <button onClick={handleLogout} className="text-sm text-red-500">
+                      Logout
+                    </button>
                   </div>
                 </>
               ) : (
@@ -90,58 +106,60 @@ function App() {
   const [adminPassword, setAdminPassword] = useState('');
 
   useEffect(() => {
-    const loadAppData = async () => {
+    const loadUser = async () => {
       try {
         setIsLoading(true);
         setError(null);
 
-        const storedUser = sessionStorage.getItem('cachedUser');
-        if (storedUser) {
-          setCurrentUser(JSON.parse(storedUser));
-          setIsLoading(false);
+        const cached = sessionStorage.getItem("cachedUser");
+        if (cached) {
+          setCurrentUser(JSON.parse(cached));
           return;
         }
 
-        const tgWebAppData = new URLSearchParams(window.location.search).get('tgWebAppData');
-        const userData = await initializeAppData(tgWebAppData);
+        const tgWebAppData = new URLSearchParams(window.location.search).get("tgWebAppData");
+        if (!tgWebAppData) {
+          setError("User not found. Please open from the Telegram bot.");
+          return;
+        }
 
+        const userData = await initializeAppData(tgWebAppData);
         if (userData) {
-          sessionStorage.setItem('cachedUser', JSON.stringify(userData));
+          sessionStorage.setItem("cachedUser", JSON.stringify(userData));
           setCurrentUser(userData);
         } else {
-          setError("Could not load user data. Please ensure you're accessing this via the Telegram bot.");
+          setError("Failed to load user data. Try again from Telegram.");
         }
       } catch (err) {
-        console.error('Initialization error:', err);
-        setError('An error occurred while loading the application.');
+        console.error("App init error:", err);
+        setError("Something went wrong. Please try again.");
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadAppData();
+    loadUser();
   }, []);
 
   const handleAdminLogin = async () => {
     try {
-      const response = await fetch('/api/verifyAdmin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: adminPassword }),
+      const res = await fetch("/api/verifyAdmin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: adminPassword })
       });
+      const data = await res.json();
 
-      const result = await response.json();
-      if (result.success) {
+      if (data.success) {
         setAdminVerified(true);
         localStorage.setItem("adminVerified", "true");
         sessionStorage.setItem("adminSession", "true");
         setError(null);
       } else {
-        setError(result.message || 'Invalid password.');
+        setError(data.message || "Invalid admin password.");
       }
     } catch (err) {
-      console.error('Admin login error:', err);
-      setError('Server error. Please try again.');
+      setError("Admin login failed.");
     }
   };
 
@@ -151,6 +169,8 @@ function App() {
     sessionStorage.removeItem("adminSession");
     sessionStorage.removeItem("cachedUser");
   };
+
+  const isGameRoute = location.pathname === "/game";
 
   if (isLoading) {
     return (
@@ -163,14 +183,12 @@ function App() {
   if (error || !currentUser) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background dark:bg-gray-900 text-destructive p-4">
-        <p className="text-center">{error || 'User data could not be loaded. Please try again via the Telegram bot.'}</p>
+        <p className="text-center">{error || "User data could not be loaded."}</p>
       </div>
     );
   }
 
   const isAdmin = currentUser?.isAdmin === true;
-
-  const isGameRoute = location.pathname === '/game';
 
   return (
     <UserContext.Provider value={{ user: currentUser, setUser: setCurrentUser }}>
