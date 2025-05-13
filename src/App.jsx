@@ -41,37 +41,40 @@ function AppContent({ isAdmin, adminVerified, setAdminVerified, handleAdminLogin
         <Route path="/invite" element={<DashboardPage activeView="invite" />} />
         <Route path="/leaders" element={<DashboardPage activeView="leaders" />} />
         <Route path="/game" element={<StoneGamePage />} />
-        <Route path="/admin" element={
-          isAdmin ? (
-            adminVerified || sessionStorage.getItem("adminSession") === "true" ? (
-              <>
-                <AdminPage />
-                <div className="text-center py-2">
-                  <button onClick={handleLogout} className="text-sm text-red-500">Logout</button>
+        <Route
+          path="/admin"
+          element={
+            isAdmin ? (
+              adminVerified || sessionStorage.getItem("adminSession") === "true" ? (
+                <>
+                  <AdminPage />
+                  <div className="text-center py-2">
+                    <button onClick={handleLogout} className="text-sm text-red-500">Logout</button>
+                  </div>
+                </>
+              ) : (
+                <div className="min-h-screen flex flex-col items-center justify-center bg-background dark:bg-gray-900 text-primary p-4">
+                  <h2 className="text-xl font-semibold mb-4">Admin Login</h2>
+                  <input
+                    type="password"
+                    placeholder="Enter admin password"
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    className="border border-gray-300 dark:border-gray-700 rounded px-4 py-2 mb-4 text-black dark:text-white"
+                  />
+                  <button
+                    onClick={handleAdminLogin}
+                    className="bg-primary text-white px-4 py-2 rounded hover:bg-primary-dark"
+                  >
+                    Login
+                  </button>
                 </div>
-              </>
+              )
             ) : (
-              <div className="min-h-screen flex flex-col items-center justify-center bg-background dark:bg-gray-900 text-primary p-4">
-                <h2 className="text-xl font-semibold mb-4">Admin Login</h2>
-                <input
-                  type="password"
-                  placeholder="Enter admin password"
-                  value={adminPassword}
-                  onChange={(e) => setAdminPassword(e.target.value)}
-                  className="border border-gray-300 dark:border-gray-700 rounded px-4 py-2 mb-4 text-black dark:text-white"
-                />
-                <button
-                  onClick={handleAdminLogin}
-                  className="bg-primary text-white px-4 py-2 rounded hover:bg-primary-dark"
-                >
-                  Login
-                </button>
-              </div>
+              <Navigate to="/" />
             )
-          ) : (
-            <Navigate to="/" />
-          )
-        } />
+          }
+        />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </motion.div>
@@ -79,6 +82,7 @@ function AppContent({ isAdmin, adminVerified, setAdminVerified, handleAdminLogin
 }
 
 function App() {
+  const location = useLocation();
   const [currentUser, setCurrentUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -100,6 +104,7 @@ function App() {
 
         const tgWebAppData = new URLSearchParams(window.location.search).get('tgWebAppData');
         const userData = await initializeAppData(tgWebAppData);
+
         if (userData) {
           sessionStorage.setItem('cachedUser', JSON.stringify(userData));
           setCurrentUser(userData);
@@ -124,6 +129,7 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: adminPassword }),
       });
+
       const result = await response.json();
       if (result.success) {
         setAdminVerified(true);
@@ -164,29 +170,35 @@ function App() {
 
   const isAdmin = currentUser?.isAdmin === true;
 
+  const isGameRoute = location.pathname === '/game';
+
   return (
     <UserContext.Provider value={{ user: currentUser, setUser: setCurrentUser }}>
-      <Router>
-        <div className="min-h-screen flex flex-col bg-background dark:bg-gray-900 pb-16">
-          <main className="flex-grow container mx-auto px-4 py-8">
-            <AnimatePresence mode="wait">
-              <AppContent
-                isAdmin={isAdmin}
-                adminVerified={adminVerified}
-                setAdminVerified={setAdminVerified}
-                handleAdminLogin={handleAdminLogin}
-                adminPassword={adminPassword}
-                setAdminPassword={setAdminPassword}
-                handleLogout={handleLogout}
-              />
-            </AnimatePresence>
-          </main>
-          {window.location.pathname !== '/game' && <Navigation isAdmin={isAdmin} />}
-        </div>
+      <div className="min-h-screen flex flex-col bg-background dark:bg-gray-900">
+        <main className={`flex-grow ${isGameRoute ? '' : 'container mx-auto px-4 py-8'}`}>
+          <AnimatePresence mode="wait">
+            <AppContent
+              isAdmin={isAdmin}
+              adminVerified={adminVerified}
+              setAdminVerified={setAdminVerified}
+              handleAdminLogin={handleAdminLogin}
+              adminPassword={adminPassword}
+              setAdminPassword={setAdminPassword}
+              handleLogout={handleLogout}
+            />
+          </AnimatePresence>
+        </main>
+        {!isGameRoute && <Navigation isAdmin={isAdmin} />}
         <Toaster />
-      </Router>
+      </div>
     </UserContext.Provider>
   );
 }
 
-export default App;
+export default function WrappedApp() {
+  return (
+    <Router>
+      <App />
+    </Router>
+  );
+}
