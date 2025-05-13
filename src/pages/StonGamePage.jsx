@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Button } from '@/components/ui/button';
-import { useToast } from '@/components/ui/use-toast';
+import { Button } from '@/components/gui/button';
+import { useToast } from '@/components/gui/use-toast';
 import { Gem, Zap, UserCircle, DollarSign } from 'lucide-react';
-import { getUserEnergy, updateUserEnergy } from '@/lib/firebase';
+import { getUserEnergy, updateUserEnergy } from '@/lib/gfirebase';
 
 const GAME_DURATION_MS = 3000; 
 const SHOTS_PER_GAME = 5;
