@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-route
 import { motion, AnimatePresence } from 'framer-motion';
 import DashboardPage from '@/pages/DashboardPage';
 import AdminPage from '@/pages/AdminPage';
-import StoneGamePage from '@/pages/StoneGamePage'; // <-- import your game page
+import StoneGamePage from '@/pages/StonGamePage'; // <-- import your game page
 import Navigation from '@/components/layout/Navigation';
 import { Toaster } from '@/components/ui/toaster';
 import { initializeAppData } from '@/data';
@@ -163,7 +163,7 @@ function App() {
               >
                 <Routes>
                   <Route path="/" element={renderMainView()} />
-                  <Route path="/game" element={<StoneGamePage />} />
+                  <Route path="/game" element={<StonGamePage />} />
                 </Routes>
               </motion.div>
             </AnimatePresence>
