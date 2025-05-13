@@ -14,16 +14,18 @@ import {
   isCheckInDoneToday
 } from '@/data';
 import {
-  CheckCircle, CalendarCheck, HelpCircle, Clock, LogIn, Gamepad2
+  CheckCircle, CalendarCheck, HelpCircle, Clock, Gamepad2
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const itemVariants = {
   hidden: { opacity: 0, y: 10 },
   visible: { opacity: 1, y: 0 }
 };
 
-const TasksSection = ({ tasks = [], user, refreshUserData, setActiveView }) => {
+const TasksSection = ({ tasks = [], user, refreshUserData }) => {
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleVerificationClick = async (task) => {
     if (!user?.id || !task?.id) return;
@@ -95,7 +97,7 @@ const TasksSection = ({ tasks = [], user, refreshUserData, setActiveView }) => {
                 <p className="text-xs text-muted-foreground">Play and earn STON by winning points!</p>
               </div>
               <div className="flex-shrink-0">
-                <Button size="sm" onClick={() => setActiveView('game')}>
+                <Button size="sm" onClick={() => navigate('/game')}>
                   <Gamepad2 className="mr-2 h-4 w-4" /> Play Now
                 </Button>
               </div>
