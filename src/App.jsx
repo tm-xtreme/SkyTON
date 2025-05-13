@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import DashboardPage from '@/pages/DashboardPage';
 import AdminPage from '@/pages/AdminPage';
+import StoneGamePage from '@/pages/StoneGamePage'; // <-- import your game page
 import Navigation from '@/components/layout/Navigation';
 import { Toaster } from '@/components/ui/toaster';
 import { initializeAppData } from '@/data';
@@ -62,18 +63,10 @@ function App() {
     );
   }
 
-  if (error) {
+  if (error || !currentUser) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background dark:bg-gray-900 text-destructive p-4">
-        <p className="text-center">{error}</p>
-      </div>
-    );
-  }
-
-  if (!currentUser) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background dark:bg-gray-900 text-destructive p-4">
-        <p className="text-center">User data could not be loaded. Please try again via the Telegram bot.</p>
+        <p className="text-center">{error || 'User data could not be loaded. Please try again via the Telegram bot.'}</p>
       </div>
     );
   }
@@ -109,7 +102,7 @@ function App() {
     sessionStorage.removeItem("adminSession");
   };
 
-  const renderView = () => {
+  const renderMainView = () => {
     switch (activeView) {
       case 'home':
       case 'tasks':
@@ -168,7 +161,10 @@ function App() {
                 variants={pageVariants}
                 transition={pageTransition}
               >
-                {renderView()}
+                <Routes>
+                  <Route path="/" element={renderMainView()} />
+                  <Route path="/game" element={<StoneGamePage />} />
+                </Routes>
               </motion.div>
             </AnimatePresence>
           </main>
