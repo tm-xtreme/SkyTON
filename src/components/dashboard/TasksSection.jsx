@@ -1,3 +1,4 @@
+// TasksSection.jsx
 import React from 'react';
 import { motion } from 'framer-motion';
 import {
@@ -45,7 +46,7 @@ const TasksSection = ({ tasks = [], user, refreshUserData }) => {
     } else {
       success = await requestManualVerification(user.id, task.id);
       toastMessage = success
-        ? { title: "Verification Requested", description: `"${task.title}" sent for review.`, variant: "default" }
+        ? { title: "Verification Requested", description: `\"${task.title}\" sent for review.`, variant: "default" }
         : { title: "Request Failed", description: "Try again later.", variant: "destructive" };
     }
 
@@ -81,13 +82,14 @@ const TasksSection = ({ tasks = [], user, refreshUserData }) => {
   const checkInDone = isCheckInDoneToday(user.lastCheckIn);
 
   const handlePlayGame = () => {
-    if (!user?.id) return;
-    sessionStorage.setItem('cachedUser', JSON.stringify(user));
-    navigate('/game');
+    if (user?.id) {
+      sessionStorage.setItem('gameUserId', user.id);
+      navigate('/game');
+    }
   };
 
   return (
-    <motion.div variants={itemVariants} initial="hidden" animate="visible">
+    <motion.div variants={itemVariants}>
       <Card>
         <CardHeader>
           <CardTitle>💎 Earn STON</CardTitle>
@@ -95,8 +97,6 @@ const TasksSection = ({ tasks = [], user, refreshUserData }) => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-
-            {/* Play Now Button */}
             <div className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg">
               <div className="flex-1 mr-2">
                 <p className="font-semibold">Play Game</p>
@@ -109,10 +109,11 @@ const TasksSection = ({ tasks = [], user, refreshUserData }) => {
               </div>
             </div>
 
-            {/* Task List */}
             {tasks.filter(t => t.active).map((task) => {
               const isCheckInTask = task.type === 'daily_checkin';
-              const isCompleted = isCheckInTask ? checkInDone : user.tasks?.[task.id] === true;
+              const isCompleted = isCheckInTask
+                ? checkInDone
+                : user.tasks?.[task.id] === true;
               const isPending = user.pendingVerificationTasks?.includes(task.id);
               const isDisabled = isCheckInTask ? checkInDone : (isCompleted || isPending);
 
