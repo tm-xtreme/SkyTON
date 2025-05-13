@@ -82,9 +82,7 @@ function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [adminVerified, setAdminVerified] = useState(() => {
-    return localStorage.getItem("adminVerified") === "true";
-  });
+  const [adminVerified, setAdminVerified] = useState(() => localStorage.getItem("adminVerified") === "true");
   const [adminPassword, setAdminPassword] = useState('');
 
   useEffect(() => {
@@ -92,8 +90,18 @@ function App() {
       try {
         setIsLoading(true);
         setError(null);
-        const userData = await initializeAppData();
+
+        const storedUser = sessionStorage.getItem('cachedUser');
+        if (storedUser) {
+          setCurrentUser(JSON.parse(storedUser));
+          setIsLoading(false);
+          return;
+        }
+
+        const tgWebAppData = new URLSearchParams(window.location.search).get('tgWebAppData');
+        const userData = await initializeAppData(tgWebAppData);
         if (userData) {
+          sessionStorage.setItem('cachedUser', JSON.stringify(userData));
           setCurrentUser(userData);
         } else {
           setError("Could not load user data. Please ensure you're accessing this via the Telegram bot.");
@@ -116,7 +124,6 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: adminPassword }),
       });
-
       const result = await response.json();
       if (result.success) {
         setAdminVerified(true);
@@ -136,6 +143,7 @@ function App() {
     setAdminVerified(false);
     localStorage.removeItem("adminVerified");
     sessionStorage.removeItem("adminSession");
+    sessionStorage.removeItem("cachedUser");
   };
 
   if (isLoading) {
@@ -173,7 +181,7 @@ function App() {
               />
             </AnimatePresence>
           </main>
-          <Navigation isAdmin={isAdmin} />
+          {window.location.pathname !== '/game' && <Navigation isAdmin={isAdmin} />}
         </div>
         <Toaster />
       </Router>
