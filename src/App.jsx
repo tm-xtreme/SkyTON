@@ -20,13 +20,13 @@ export const UserContext = React.createContext(null);
 const pageVariants = {
   initial: { opacity: 0, y: 20 },
   in: { opacity: 1, y: 0 },
-  out: { opacity: 0, y: -20 },
+  out: { opacity: 0, y: -20 }
 };
 
 const pageTransition = {
   type: 'tween',
   ease: 'anticipate',
-  duration: 0.4,
+  duration: 0.4
 };
 
 function AppContent({
@@ -111,19 +111,23 @@ function App() {
         setIsLoading(true);
         setError(null);
 
-        const cached = sessionStorage.getItem("cachedUser");
-        if (cached) {
-          setCurrentUser(JSON.parse(cached));
-          return;
-        }
+        const cachedUser = sessionStorage.getItem("cachedUser");
+        const cachedTgWebAppData = sessionStorage.getItem("tgWebAppDataRaw");
+        const urlTgWebAppData = new URLSearchParams(window.location.search).get("tgWebAppData");
 
-        const tgWebAppData = new URLSearchParams(window.location.search).get("tgWebAppData");
-        if (!tgWebAppData) {
+        const tgDataToUse = urlTgWebAppData || cachedTgWebAppData;
+
+        if (!tgDataToUse) {
           setError("User not found. Please open from the Telegram bot.");
           return;
         }
 
-        const userData = await initializeAppData(tgWebAppData);
+        if (urlTgWebAppData) {
+          sessionStorage.setItem("tgWebAppDataRaw", urlTgWebAppData);
+        }
+
+        const userData = await initializeAppData(tgDataToUse);
+
         if (userData) {
           sessionStorage.setItem("cachedUser", JSON.stringify(userData));
           setCurrentUser(userData);
@@ -168,9 +172,11 @@ function App() {
     localStorage.removeItem("adminVerified");
     sessionStorage.removeItem("adminSession");
     sessionStorage.removeItem("cachedUser");
+    sessionStorage.removeItem("tgWebAppDataRaw");
   };
 
   const isGameRoute = location.pathname === "/game";
+  const isAdmin = currentUser?.isAdmin === true;
 
   if (isLoading) {
     return (
@@ -187,8 +193,6 @@ function App() {
       </div>
     );
   }
-
-  const isAdmin = currentUser?.isAdmin === true;
 
   return (
     <UserContext.Provider value={{ user: currentUser, setUser: setCurrentUser }}>
