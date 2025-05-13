@@ -53,8 +53,8 @@ function StonGamePage() {
   };
 
   useEffect(() => {
-    const id = sessionStorage.getItem("gameUserId");
-    if (!id) {
+    const cachedUser = sessionStorage.getItem("cachedUser");
+    if (!cachedUser) {
       toast({
         title: "User Not Found",
         description: "Please launch the game via the dashboard.",
@@ -63,10 +63,8 @@ function StonGamePage() {
       navigate("/tasks");
       return;
     }
-
-    getUserData(id).then((data) => {
-      if (data) setUserData(data);
-    });
+    const user = JSON.parse(cachedUser);
+    setUserData(user);
   }, [navigate, toast]);
 
   const startNewGem = useCallback(() => {
@@ -239,4 +237,3 @@ function StonGamePage() {
 }
 
 export default StonGamePage;
-    
