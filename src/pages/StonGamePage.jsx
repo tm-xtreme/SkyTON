@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/gui/button';
 import { useToast } from '@/components/gui/use-toast';
@@ -12,18 +12,10 @@ const SHOTS_PER_GAME = 5;
 const ENERGY_COST_PER_GAME = -20;
 
 function StonGamePage() {
-  const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const [userData, setUserData] = useState({
-    id: '',
-    firstName: 'Player',
-    profilePicUrl: '',
-    balance: 0,
-    energy: 0
-  });
-
+  const [userData, setUserData] = useState(null);
   const [score, setScore] = useState(0);
   const [shotsLeft, setShotsLeft] = useState(SHOTS_PER_GAME);
   const [isGameActive, setIsGameActive] = useState(false);
@@ -33,13 +25,11 @@ function StonGamePage() {
     try {
       const ref = doc(db, 'users', userId);
       const snap = await getDoc(ref);
-      if (snap.exists()) {
-        return { id: userId, ...snap.data() };
-      }
+      return snap.exists() ? { id: userId, ...snap.data() } : null;
     } catch (err) {
       console.error('Error loading user data:', err);
+      return null;
     }
-    return null;
   };
 
   const updateUserEnergy = async (userId, amount) => {
@@ -65,14 +55,21 @@ function StonGamePage() {
   };
 
   useEffect(() => {
-    const searchParams = new URLSearchParams(location.search);
-    const id = searchParams.get('id') || '';
-    if (id) {
-      getUserData(id).then((data) => {
-        if (data) setUserData(data);
+    const id = sessionStorage.getItem("gameUserId");
+    if (!id) {
+      toast({
+        title: "User Not Found",
+        description: "Please launch the game via the dashboard.",
+        variant: "destructive",
       });
+      navigate("/tasks");
+      return;
     }
-  }, [location.search]);
+
+    getUserData(id).then((data) => {
+      if (data) setUserData(data);
+    });
+  }, [navigate, toast]);
 
   const startNewGem = useCallback(() => {
     if (shotsLeft <= 0) {
@@ -88,7 +85,7 @@ function StonGamePage() {
   }, [shotsLeft]);
 
   const startGame = () => {
-    if (userData.energy < Math.abs(ENERGY_COST_PER_GAME)) {
+    if (userData?.energy < Math.abs(ENERGY_COST_PER_GAME)) {
       toast({
         title: 'Not enough energy!',
         description: `You need ${Math.abs(ENERGY_COST_PER_GAME)} energy to play.`,
@@ -107,9 +104,12 @@ function StonGamePage() {
     setIsGameActive(false);
     setGem(null);
 
-    if (userData.id) {
-      const energyOk = await updateUserEnergy(userData.id, ENERGY_COST_PER_GAME);
-      const balanceOk = await updateUserBalance(userData.id, score);
+    if (userData?.id) {
+      const [energyOk, balanceOk] = await Promise.all([
+        updateUserEnergy(userData.id, ENERGY_COST_PER_GAME),
+        updateUserBalance(userData.id, score),
+      ]);
+
       if (energyOk && balanceOk) {
         const updatedUser = await getUserData(userData.id);
         if (updatedUser) setUserData(updatedUser);
@@ -118,7 +118,7 @@ function StonGamePage() {
         toast({ title: 'Error', description: 'Failed to update balance or energy.', variant: 'destructive' });
       }
     }
-  }, [userData.id, score]);
+  }, [score, userData]);
 
   const handleShoot = () => {
     if (!isGameActive || !gem || shotsLeft <= 0) return;
@@ -151,6 +151,8 @@ function StonGamePage() {
     if (shotsLeft > 1) setTimeout(startNewGem, 300);
     else setTimeout(endGame, 300);
   };
+
+  if (!userData) return null;
 
   return (
     <div className="ston-game-bg">
