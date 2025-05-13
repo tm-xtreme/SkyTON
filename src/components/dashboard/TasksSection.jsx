@@ -3,15 +3,9 @@ import { motion } from 'framer-motion';
 import {
   Card, CardContent, CardDescription, CardHeader, CardTitle
 } from '@/components/ui/card';
-import {
-  Button
-} from '@/components/ui/button';
-import {
-  Badge
-} from '@/components/ui/badge';
-import {
-  useToast
-} from '@/components/ui/use-toast';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/components/ui/use-toast';
 import {
   completeTask,
   performCheckIn,
@@ -19,14 +13,16 @@ import {
   getCurrentUser,
   isCheckInDoneToday
 } from '@/data';
-import { CheckCircle, Link as LinkIcon, LogIn, UserPlus, CalendarCheck, HelpCircle, Clock } from 'lucide-react';
+import {
+  CheckCircle, CalendarCheck, HelpCircle, Clock, LogIn, Gamepad2
+} from 'lucide-react';
 
 const itemVariants = {
   hidden: { opacity: 0, y: 10 },
   visible: { opacity: 1, y: 0 }
 };
 
-const TasksSection = ({ tasks = [], user, refreshUserData }) => {
+const TasksSection = ({ tasks = [], user, refreshUserData, setActiveView }) => {
   const { toast } = useToast();
 
   const handleVerificationClick = async (task) => {
@@ -86,11 +82,26 @@ const TasksSection = ({ tasks = [], user, refreshUserData }) => {
     <motion.div variants={itemVariants}>
       <Card>
         <CardHeader>
-          <CardTitle>Available Tasks</CardTitle>
-          <CardDescription>Complete tasks to earn more STON.</CardDescription>
+          <CardTitle>💎 Earn STON</CardTitle>
+          <CardDescription>Complete tasks to earn more STON tokens.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
+
+            {/* Play Now Button at the Top */}
+            <div className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg">
+              <div className="flex-1 mr-2">
+                <p className="font-semibold">Play Game</p>
+                <p className="text-xs text-muted-foreground">Play and earn STON by winning points!</p>
+              </div>
+              <div className="flex-shrink-0">
+                <Button size="sm" onClick={() => setActiveView('game')}>
+                  <Gamepad2 className="mr-2 h-4 w-4" /> Play Now
+                </Button>
+              </div>
+            </div>
+
+            {/* Task List */}
             {tasks.filter(t => t.active).map((task) => {
               const isCheckInTask = task.type === 'daily_checkin';
               const isCompleted = isCheckInTask
@@ -148,6 +159,7 @@ const TasksSection = ({ tasks = [], user, refreshUserData }) => {
                 </div>
               );
             })}
+
           </div>
         </CardContent>
       </Card>
