@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import { motion, AnimatePresence } from 'framer-motion';
 import DashboardPage from '@/pages/DashboardPage';
 import AdminPage from '@/pages/AdminPage';
-import StonGamePage from '@/pages/StonGamePage';
+import StoneGamePage from '@/pages/StonGamePage';
 import Navigation from '@/components/layout/Navigation';
 import { Toaster } from '@/components/ui/toaster';
 import { initializeAppData } from '@/data';
@@ -23,23 +23,60 @@ const pageTransition = {
   duration: 0.4,
 };
 
-const AnimatedRouteWrapper = ({ children }) => {
+function AppContent({ isAdmin, adminVerified, setAdminVerified, handleAdminLogin, adminPassword, setAdminPassword, handleLogout }) {
   const location = useLocation();
+
   return (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key={location.pathname}
-        initial="initial"
-        animate="in"
-        exit="out"
-        variants={pageVariants}
-        transition={pageTransition}
-      >
-        {children}
-      </motion.div>
-    </AnimatePresence>
+    <motion.div
+      key={location.pathname}
+      initial="initial"
+      animate="in"
+      exit="out"
+      variants={pageVariants}
+      transition={pageTransition}
+    >
+      <Routes>
+        <Route path="/" element={<DashboardPage activeView="home" />} />
+        <Route path="/tasks" element={<DashboardPage activeView="tasks" />} />
+        <Route path="/invite" element={<DashboardPage activeView="invite" />} />
+        <Route path="/leaders" element={<DashboardPage activeView="leaders" />} />
+        <Route path="/game" element={<StoneGamePage />} />
+        <Route path="/admin" element={
+          isAdmin ? (
+            adminVerified || sessionStorage.getItem("adminSession") === "true" ? (
+              <>
+                <AdminPage />
+                <div className="text-center py-2">
+                  <button onClick={handleLogout} className="text-sm text-red-500">Logout</button>
+                </div>
+              </>
+            ) : (
+              <div className="min-h-screen flex flex-col items-center justify-center bg-background dark:bg-gray-900 text-primary p-4">
+                <h2 className="text-xl font-semibold mb-4">Admin Login</h2>
+                <input
+                  type="password"
+                  placeholder="Enter admin password"
+                  value={adminPassword}
+                  onChange={(e) => setAdminPassword(e.target.value)}
+                  className="border border-gray-300 dark:border-gray-700 rounded px-4 py-2 mb-4 text-black dark:text-white"
+                />
+                <button
+                  onClick={handleAdminLogin}
+                  className="bg-primary text-white px-4 py-2 rounded hover:bg-primary-dark"
+                >
+                  Login
+                </button>
+              </div>
+            )
+          ) : (
+            <Navigate to="/" />
+          )
+        } />
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+    </motion.div>
   );
-};
+}
 
 function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -59,11 +96,11 @@ function App() {
         if (userData) {
           setCurrentUser(userData);
         } else {
-          setError("Could not load user data. Please access via Telegram bot.");
+          setError("Could not load user data. Please ensure you're accessing this via the Telegram bot.");
         }
       } catch (err) {
         console.error('Initialization error:', err);
-        setError("Error loading app.");
+        setError('An error occurred while loading the application.');
       } finally {
         setIsLoading(false);
       }
@@ -71,24 +108,6 @@ function App() {
 
     loadAppData();
   }, []);
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background dark:bg-gray-900 text-primary">
-        <Loader2 className="h-12 w-12 animate-spin" />
-      </div>
-    );
-  }
-
-  if (error || !currentUser) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background dark:bg-gray-900 text-destructive p-4">
-        <p className="text-center">{error || 'User data could not be loaded. Try again from Telegram.'}</p>
-      </div>
-    );
-  }
-
-  const isAdmin = currentUser?.isAdmin === true;
 
   const handleAdminLogin = async () => {
     try {
@@ -108,6 +127,7 @@ function App() {
         setError(result.message || 'Invalid password.');
       }
     } catch (err) {
+      console.error('Admin login error:', err);
       setError('Server error. Please try again.');
     }
   };
@@ -118,59 +138,41 @@ function App() {
     sessionStorage.removeItem("adminSession");
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background dark:bg-gray-900 text-primary">
+        <Loader2 className="h-12 w-12 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error || !currentUser) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background dark:bg-gray-900 text-destructive p-4">
+        <p className="text-center">{error || 'User data could not be loaded. Please try again via the Telegram bot.'}</p>
+      </div>
+    );
+  }
+
+  const isAdmin = currentUser?.isAdmin === true;
+
   return (
     <UserContext.Provider value={{ user: currentUser, setUser: setCurrentUser }}>
       <Router>
         <div className="min-h-screen flex flex-col bg-background dark:bg-gray-900 pb-16">
           <main className="flex-grow container mx-auto px-4 py-8">
-            <Routes>
-              <Route path="/" element={
-                <AnimatedRouteWrapper>
-                  <DashboardPage />
-                </AnimatedRouteWrapper>
-              } />
-
-              <Route path="/game" element={
-                <AnimatedRouteWrapper>
-                  <StonGamePage />
-                </AnimatedRouteWrapper>
-              } />
-
-              <Route path="/admin" element={
-                <AnimatedRouteWrapper>
-                  {isAdmin ? (
-                    adminVerified || sessionStorage.getItem("adminSession") === "true" ? (
-                      <>
-                        <AdminPage />
-                        <div className="text-center py-2">
-                          <button onClick={handleLogout} className="text-sm text-red-500">Logout</button>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="min-h-screen flex flex-col items-center justify-center bg-background dark:bg-gray-900 text-primary p-4">
-                        <h2 className="text-xl font-semibold mb-4">Admin Login</h2>
-                        <input
-                          type="password"
-                          placeholder="Enter admin password"
-                          value={adminPassword}
-                          onChange={(e) => setAdminPassword(e.target.value)}
-                          className="border border-gray-300 dark:border-gray-700 rounded px-4 py-2 mb-4 text-black dark:text-white"
-                        />
-                        <button
-                          onClick={handleAdminLogin}
-                          className="bg-primary text-white px-4 py-2 rounded hover:bg-primary-dark"
-                        >
-                          Login
-                        </button>
-                        {error && <p className="text-destructive mt-4">{error}</p>}
-                      </div>
-                    )
-                  ) : <Navigate to="/" />}
-                </AnimatedRouteWrapper>
-              } />
-            </Routes>
+            <AnimatePresence mode="wait">
+              <AppContent
+                isAdmin={isAdmin}
+                adminVerified={adminVerified}
+                setAdminVerified={setAdminVerified}
+                handleAdminLogin={handleAdminLogin}
+                adminPassword={adminPassword}
+                setAdminPassword={setAdminPassword}
+                handleLogout={handleLogout}
+              />
+            </AnimatePresence>
           </main>
-
           <Navigation isAdmin={isAdmin} />
         </div>
         <Toaster />
