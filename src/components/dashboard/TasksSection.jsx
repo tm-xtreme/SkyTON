@@ -81,13 +81,13 @@ const TasksSection = ({ tasks = [], user, refreshUserData }) => {
   const checkInDone = isCheckInDoneToday(user.lastCheckIn);
 
   const handlePlayGame = () => {
-    // Save current user to sessionStorage for the game to use
+    if (!user?.id) return;
     sessionStorage.setItem('cachedUser', JSON.stringify(user));
     navigate('/game');
   };
 
   return (
-    <motion.div variants={itemVariants}>
+    <motion.div variants={itemVariants} initial="hidden" animate="visible">
       <Card>
         <CardHeader>
           <CardTitle>💎 Earn STON</CardTitle>
@@ -112,9 +112,7 @@ const TasksSection = ({ tasks = [], user, refreshUserData }) => {
             {/* Task List */}
             {tasks.filter(t => t.active).map((task) => {
               const isCheckInTask = task.type === 'daily_checkin';
-              const isCompleted = isCheckInTask
-                ? checkInDone
-                : user.tasks?.[task.id] === true;
+              const isCompleted = isCheckInTask ? checkInDone : user.tasks?.[task.id] === true;
               const isPending = user.pendingVerificationTasks?.includes(task.id);
               const isDisabled = isCheckInTask ? checkInDone : (isCompleted || isPending);
 
