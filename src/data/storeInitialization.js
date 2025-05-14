@@ -8,6 +8,7 @@ export const initializeAppData = async () => {
   console.log("Initializing App Data...");
   const { telegramUser, referrerId } = parseLaunchParams();
 
+  // Seed tasks if they don’t already exist
   await seedInitialTasks(defaultFirestoreTasks);
 
   if (telegramUser) {
@@ -21,17 +22,18 @@ export const initializeAppData = async () => {
     }
   }
 
-  // Fallback if user ID was previously saved
+  // Fallback: get user from sessionStorage
   const storedId = sessionStorage.getItem('userId');
   if (storedId) {
     const existingUser = await getUserById(storedId);
     if (existingUser) {
       console.log("Loaded user from stored session ID:", storedId);
-      return { id: storedId, ...existingUser };
+      return existingUser;
     }
   }
 
-  console.warn("No Telegram user or stored user ID. Returning test user.");
+  // Final fallback for dev/test use
+  console.warn("No Telegram user or stored session. Using test user.");
   return {
     id: 'test_user',
     name: 'Test User',
