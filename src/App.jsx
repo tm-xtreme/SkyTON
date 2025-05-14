@@ -118,7 +118,7 @@ function App() {
         const tgDataToUse = urlTgWebAppData || cachedTgWebAppData;
 
         if (!tgDataToUse) {
-          setError("User not found. Please open from the Telegram bot.");
+          setError("User not found. Please open from the Telegram bot or may be error from app. Don't worry admin will fix it, if it's server side problem.");
           return;
         }
 
