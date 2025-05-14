@@ -12,7 +12,7 @@ import AdminPage from '@/pages/AdminPage';
 import StoneGamePage from '@/pages/StonGamePage';
 import Navigation from '@/components/layout/Navigation';
 import { Toaster } from '@/components/ui/toaster';
-import { initializeAppData } from '@/data/storeInitialization';
+import { initializeAppData } from '@/data';
 import { Loader2 } from 'lucide-react';
 
 export const UserContext = React.createContext(null);
@@ -111,18 +111,19 @@ function App() {
         setIsLoading(true);
         setError(null);
 
-        const cached = sessionStorage.getItem("cachedUser");
-        if (cached) {
-          setCurrentUser(JSON.parse(cached));
-          return;
+        const cachedUser = sessionStorage.getItem("cachedUser");
+        if (cachedUser) {
+          setCurrentUser(JSON.parse(cachedUser));
         }
 
+        // Always refresh with latest user data from Firestore
         const userData = await initializeAppData();
+
         if (userData) {
           sessionStorage.setItem("cachedUser", JSON.stringify(userData));
           setCurrentUser(userData);
         } else {
-          setError("⚠️ User not found. Please open from the Telegram bot.");
+          setError("User not found. Please open from the Telegram bot.");
         }
       } catch (err) {
         console.error("App init error:", err);
@@ -162,6 +163,7 @@ function App() {
     localStorage.removeItem("adminVerified");
     sessionStorage.removeItem("adminSession");
     sessionStorage.removeItem("cachedUser");
+    sessionStorage.removeItem("tgWebAppDataRaw");
   };
 
   const isGameRoute = location.pathname === "/game";
