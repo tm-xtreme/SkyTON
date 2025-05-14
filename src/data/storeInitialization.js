@@ -1,7 +1,6 @@
-
-import React from 'react';
-import { getOrCreateUser } from '@/data/firestore/userActions'; // Updated import path
-import { seedInitialTasks } from '@/data/firestore/initActions'; // Updated import path
+// src/data/storeInitialization.js
+import { getOrCreateUser, getUserById } from '@/data/firestore/userActions';
+import { seedInitialTasks } from '@/data/firestore/initActions';
 import { parseLaunchParams } from '@/data/telegramUtils';
 import { defaultFirestoreTasks } from '@/data/defaults';
 
@@ -11,23 +10,31 @@ export const initializeAppData = async () => {
 
   await seedInitialTasks(defaultFirestoreTasks);
 
-  // Allow fallback for dev/test mode
-  if (!telegramUser) {
-    console.warn("No Telegram user data found in URL. Using dummy user for dev/test.");
-    return {
-      id: 'test_user',
-      name: 'Test User',
-      isAdmin: true, // or false if you want to test as a regular user
-    };
+  if (telegramUser) {
+    const userData = await getOrCreateUser(telegramUser, referrerId);
+    if (userData) {
+      sessionStorage.setItem('userId', userData.id);
+      return userData;
+    } else {
+      console.error("Failed to get or create user from Telegram WebApp data.");
+      return null;
+    }
   }
 
-  const userData = await getOrCreateUser(telegramUser, referrerId);
-
-  if (!userData) {
-    console.error("Failed to get or create user in Firestore.");
-    return null;
+  // Fallback if user ID was previously saved
+  const storedId = sessionStorage.getItem('userId');
+  if (storedId) {
+    const existingUser = await getUserById(storedId);
+    if (existingUser) {
+      console.log("Loaded user from stored session ID:", storedId);
+      return { id: storedId, ...existingUser };
+    }
   }
 
-  console.log("App data initialized. User:", userData.id);
-  return userData;
+  console.warn("No Telegram user or stored user ID. Returning test user.");
+  return {
+    id: 'test_user',
+    name: 'Test User',
+    isAdmin: true
+  };
 };
