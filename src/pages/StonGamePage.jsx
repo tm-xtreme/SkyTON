@@ -11,7 +11,7 @@ const GAME_DURATION_MS = 2500;
 const SHOTS_PER_GAME = 5;
 const ENERGY_COST_PER_GAME = -20;
 
-function StonGamePage() {
+function PingPongGamePage() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -20,6 +20,9 @@ function StonGamePage() {
   const [shotsLeft, setShotsLeft] = useState(SHOTS_PER_GAME);
   const [isGameActive, setIsGameActive] = useState(false);
   const [gem, setGem] = useState(null);
+  const [paddlePosition, setPaddlePosition] = useState(40); // Paddle starts at 40% of screen width
+  const [misses, setMisses] = useState(0); // Track misses
+  const [ballPosition, setBallPosition] = useState({ x: 50, y: 0 }); // Ball position
 
   const getUserData = async (userId) => {
     try {
@@ -88,6 +91,7 @@ function StonGamePage() {
     }
     setScore(0);
     setShotsLeft(SHOTS_PER_GAME);
+    setMisses(0);
     setIsGameActive(true);
     startNewGem();
   };
@@ -140,17 +144,46 @@ function StonGamePage() {
     else setTimeout(endGame, 300);
   };
 
+  const handlePaddleMove = (e) => {
+    const gameArea = document.getElementById("game-area");
+    if (gameArea) {
+      const rect = gameArea.getBoundingClientRect();
+      const newPaddlePosition = ((e.clientX - rect.left) / rect.width) * 100;
+      setPaddlePosition(Math.min(Math.max(newPaddlePosition, 0), 100));
+    }
+  };
+
+  const moveBall = () => {
+    if (!isGameActive) return;
+    setBallPosition((prev) => ({ ...prev, y: prev.y + 1 }));
+    if (ballPosition.y > 100) {
+      setMisses((prev) => prev + 1);
+      if (misses >= 4) {
+        setIsGameActive(false);
+        toast({ title: 'Game Over!', description: `You missed 5 times!` });
+      }
+      setBallPosition({ x: 50, y: 0 });
+    }
+  };
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (isGameActive) moveBall();
+    }, 20);
+    return () => clearInterval(interval);
+  }, [isGameActive, ballPosition, misses]);
+
   if (!userData) return null;
 
   return (
-    <div className="ston-game-bg">
+    <div className="ping-pong-game-bg">
       <div className="absolute top-3 left-3 z-40">
-        <Button 
+        <Button
           size="icon"
           variant="ghost"
           className="bg-slate-800/80 hover:bg-slate-700/90 rounded-full shadow-md"
           onClick={() => navigate('/tasks')}
-          >
+        >
           <ArrowLeft className="h-4 w-4 text-white" />
         </Button>
       </div>
@@ -178,10 +211,14 @@ function StonGamePage() {
 
         <div className="game-content px-2">
           <div className="w-full max-w-sm mx-auto">
-            <h1 className="game-title text-2xl font-bold text-center mb-1">STON Game</h1>
-            <p className="game-subtitle text-xs text-center mb-2">Catch falling STONs and earn rewards!</p>
+            <h1 className="game-title text-2xl font-bold text-center mb-1">Ping Pong Game</h1>
+            <p className="game-subtitle text-xs text-center mb-2">Catch falling gems and earn rewards!</p>
 
-            <div id="game-area" className="game-area relative w-full rounded-lg overflow-hidden mb-2">
+            <div
+              id="game-area"
+              className="game-area relative w-full rounded-lg overflow-hidden mb-2"
+              onMouseMove={handlePaddleMove}
+            >
               <AnimatePresence>
                 {isGameActive && gem && (
                   <motion.div
@@ -201,38 +238,40 @@ function StonGamePage() {
                 )}
               </AnimatePresence>
               <div className="catch-zone absolute bottom-0 left-0 right-0 h-1/3 pointer-events-none">
-                <div className="h-full flex items-center justify-center">
-                  <p className="catch-zone-text text-[10px] font-medium">Catch Zone</p>
-                </div>
+              <div className="h-full"></div>
               </div>
-            </div>
-
-            <div className="flex justify-between items-center mb-2 text-xs">
-              <div className="flex items-center game-score">
-                <Gem className="w-4 h-4 mr-1 text-emerald-400" />
-                <span className="font-bold">Score: {score}</span>
-              </div>
-              <div className="flex items-center">
-                <span className="game-score mr-1">Shots:</span>
-                <span className="game-shots text-base font-bold">{shotsLeft}</span>
-              </div>
+              
+              <div
+                className="paddle absolute bottom-0 w-24 h-2 bg-sky-400 rounded-full"
+                style={{ left: `${paddlePosition}%` }}
+              ></div>
+              <motion.div
+                className="ball absolute bg-white rounded-full"
+                style={{
+                  width: '10px',
+                  height: '10px',
+                  left: `${ballPosition.x}%`,
+                  top: `${ballPosition.y}%`,
+                }}
+              ></motion.div>
             </div>
 
             {!isGameActive ? (
-              <Button
-                onClick={startGame}
-                className="w-full text-sm py-4 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold shadow-md"
-              >
-                Start Game
+              <Button onClick={startGame} className="w-full mt-4">
+                Start New Game
               </Button>
             ) : (
-              <Button
-                onClick={handleShoot}
-                className="w-full text-sm py-4 bg-gradient-to-r from-sky-500 to-cyan-600 text-white font-bold shadow-md"
-                disabled={!gem || shotsLeft <= 0}
-              >
-                Shoot!
-              </Button>
+              <div className="game-info flex justify-between items-center text-sm mb-4">
+                <div className="score">
+                  <strong>Score:</strong> {score}
+                </div>
+                <div className="shots-left">
+                  <strong>Shots Left:</strong> {shotsLeft}
+                </div>
+                <div className="misses">
+                  <strong>Misses:</strong> {misses} / 5
+                </div>
+              </div>
             )}
           </div>
         </div>
@@ -241,4 +280,4 @@ function StonGamePage() {
   );
 }
 
-export default StonGamePage;
+export default PingPongGamePage;
