@@ -122,7 +122,7 @@ function App() {
           sessionStorage.setItem("cachedUser", JSON.stringify(userData));
           setCurrentUser(userData);
         } else {
-          setError("User not found. Please open from the Telegram bot.");
+          setError("⚠️ User not found. Please open from the Telegram bot.");
         }
       } catch (err) {
         console.error("App init error:", err);
