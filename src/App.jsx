@@ -9,7 +9,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import DashboardPage from '@/pages/DashboardPage';
 import AdminPage from '@/pages/AdminPage';
-import StoneGamePage from '@/pages/StonGamePage';
+import BrickBreakerGamePage from '@/pages/BrickBreakerGamePage';
 import Navigation from '@/components/layout/Navigation';
 import { Toaster } from '@/components/ui/toaster';
 import { initializeAppData } from '@/data';
@@ -54,7 +54,7 @@ function AppContent({
         <Route path="/tasks" element={<DashboardPage activeView="tasks" />} />
         <Route path="/invite" element={<DashboardPage activeView="invite" />} />
         <Route path="/leaders" element={<DashboardPage activeView="leaders" />} />
-        <Route path="/game" element={<StoneGamePage />} />
+        <Route path="/game" element={<BrickBreakerGamePage />} />
         <Route
           path="/admin"
           element={
