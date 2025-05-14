@@ -265,7 +265,7 @@ function BrickBreakerGamePage() {
     if (isGameActive) {
       requestRef.current = requestAnimationFrame(gameLoop);
     }
-  // eslint-disable-next-line
+    // eslint-disable-next-line
   }, [isGameActive, paddleX, ball, gems, userData]);
 
   // Start/stop game loop
@@ -435,68 +435,67 @@ function BrickBreakerGamePage() {
               <div
                 className="breaker-paddle absolute"
                 style={{
-                left: paddleX,
-                bottom: 18,
-                width: PADDLE_WIDTH,
-                height: PADDLE_HEIGHT,
-                background: 'linear-gradient(90deg,#38bdf8,#0ea5e9)',
-                borderRadius: 8,
-                border: '2px solid #fff',
-                boxShadow: '0 2px 8px #0ea5e9aa',
-                transition: 'left 0.05s'
-              }}
-            />
+                  left: paddleX,
+                  bottom: 18,
+                  width: PADDLE_WIDTH,
+                  height: PADDLE_HEIGHT,
+                  background: 'linear-gradient(90deg,#38bdf8,#0ea5e9)',
+                  borderRadius: 8,
+                  border: '2px solid #fff',
+                  boxShadow: '0 2px 8px #0ea5e9aa',
+                  transition: 'left 0.05s'
+                }}
+              />
 
-            {/* Overlay for game over */}
-            {!isGameActive && (
-              <div
-                className="breaker-overlay absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-10"
-                style={{ minHeight: GAME_HEIGHT }}
-              >
-                <div className="text-white text-xl font-bold mb-2">
-                  {lives === 0 ? 'Game Over' : 'STON Brick Breaker'}
-                </div>
-                <div className="text-white mb-2">Score: {score}</div>
-                <Button
-                  onClick={startGame}
-                  className="w-full text-sm py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold shadow-md"
-                  disabled={userData.energy < Math.abs(ENERGY_COST_PER_GAME) || lives === 0}
+              {/* Overlay for game over */}
+              {!isGameActive && (
+                <div
+                  className="breaker-overlay absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-10"
+                  style={{ minHeight: GAME_HEIGHT }}
                 >
-                  {lives === 0
-                    ? 'No Lives! Wait for recovery'
-                    : userData.energy < Math.abs(ENERGY_COST_PER_GAME)
-                    ? 'Not enough energy'
-                    : 'Start Game'}
-                </Button>
-                {lives === 0 && (
-                  <div className="text-xs text-pink-200 mt-2">
-                    1 life recovers every 5 minutes.
+                  <div className="text-white text-xl font-bold mb-2">
+                    {lives === 0 ? 'Game Over' : 'STON Brick Breaker'}
                   </div>
-                )}
-                {userData.energy < Math.abs(ENERGY_COST_PER_GAME) && (
-                  <div className="text-xs text-yellow-200 mt-2">
-                    Energy recovers in 24h (max 1000).
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="flex justify-between items-center mb-2 text-xs">
-            <div className="flex items-center breaker-score">
-              <Gem className="w-4 h-4 mr-1 text-emerald-400" />
-              <span className="font-bold">Score: {score}</span>
+                  <div className="text-white mb-2">Score: {score}</div>
+                  <Button
+                    onClick={startGame}
+                    className="w-full text-sm py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold shadow-md"
+                    disabled={userData.energy < Math.abs(ENERGY_COST_PER_GAME) || lives === 0}
+                  >
+                    {lives === 0
+                      ? 'No Lives! Wait for recovery'
+                      : userData.energy < Math.abs(ENERGY_COST_PER_GAME)
+                      ? 'Not enough energy'
+                      : 'Start Game'}
+                  </Button>
+                  {lives === 0 && (
+                    <div className="text-xs text-pink-200 mt-2">
+                      1 life recovers every 5 minutes.
+                    </div>
+                  )}
+                  {userData.energy < Math.abs(ENERGY_COST_PER_GAME) && (
+                    <div className="text-xs text-yellow-200 mt-2">
+                      Energy recovers in 24h (max 1000).
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-            <div className="flex items-center">
-              <span className="breaker-lives mr-1">Lives:</span>
-              <span className="breaker-lives-count text-base font-bold">{lives}</span>
+
+            <div className="flex justify-between items-center mb-2 text-xs">
+              <div className="flex items-center breaker-score">
+                <Gem className="w-4 h-4 mr-1 text-emerald-400" />
+                <span className="font-bold">Score: {score}</span>
+              </div>
+              <div className="flex items-center">
+                <span className="breaker-lives mr-1">Lives:</span>
+                <span className="breaker-lives-count text-base font-bold">{lives}</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
-</div>
   );
 }
 
