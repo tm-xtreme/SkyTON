@@ -1,31 +1,25 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/gui/button';
 import { useToast } from '@/components/gui/use-toast';
+import { Gem, Zap, UserCircle, DollarSign, ArrowLeft } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc, increment } from 'firebase/firestore';
 
-const GAME_SPEED = 10; // Ball movement speed in milliseconds
-const PADDLE_SPEED = 10; // Paddle movement speed
-const GEM_REWARD_MIN = 1; // Minimum gem reward
-const GEM_REWARD_MAX = 10; // Maximum gem reward
+const GAME_DURATION_MS = 2500;
+const SHOTS_PER_GAME = 5;
 const ENERGY_COST_PER_GAME = -20;
-const LIFE_RECOVERY_TIME_MS = 5 * 60 * 1000; // 5 minutes
-const MAX_ENERGY = 1000;
 
 function StonGamePage() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const [userData, setUserData] = useState(null);
-  const [lives, setLives] = useState(5);
   const [score, setScore] = useState(0);
-  const [energy, setEnergy] = useState(0);
+  const [shotsLeft, setShotsLeft] = useState(SHOTS_PER_GAME);
   const [isGameActive, setIsGameActive] = useState(false);
-  const [ball, setBall] = useState({ x: 50, y: 50, dx: 2, dy: 2 });
-  const [paddle, setPaddle] = useState({ x: 45 }); // Paddle position in percentage
-  const [gems, setGems] = useState([]);
-  const gameAreaRef = useRef(null);
+  const [gem, setGem] = useState(null);
 
   const getUserData = async (userId) => {
     try {
@@ -58,169 +52,189 @@ function StonGamePage() {
     }
   };
 
-  const recoverLives = useCallback(() => {
-    if (lives < 5) {
-      setLives((prev) => prev + 1);
-    }
-  }, [lives]);
-
-  const recoverEnergy = useCallback(async () => {
-    if (userData?.id && energy < MAX_ENERGY) {
-      const recoveredEnergy = Math.min(MAX_ENERGY - energy, 100); // Recover up to 100 energy
-      const success = await updateUserEnergy(userData.id, recoveredEnergy);
-      if (success) setEnergy((prev) => prev + recoveredEnergy);
-    }
-  }, [energy, userData]);
-
   useEffect(() => {
-    const cachedUser = sessionStorage.getItem('cachedUser');
+    const cachedUser = sessionStorage.getItem("cachedUser");
     if (!cachedUser) {
       toast({
-        title: 'User Not Found',
-        description: 'Please launch the game via the dashboard.',
-        variant: 'destructive',
+        title: "User Not Found",
+        description: "Please launch the game via the dashboard.",
+        variant: "destructive",
       });
-      navigate('/tasks');
+      navigate("/tasks");
       return;
     }
     const user = JSON.parse(cachedUser);
     setUserData(user);
-    setEnergy(user.energy || 0);
+  }, [navigate, toast]);
 
-    // Start life recovery interval
-    const lifeInterval = setInterval(recoverLives, LIFE_RECOVERY_TIME_MS);
-
-    // Start energy recovery interval
-    const energyInterval = setInterval(recoverEnergy, 24 * 60 * 60 * 1000); // 24 hours
-
-    return () => {
-      clearInterval(lifeInterval);
-      clearInterval(energyInterval);
-    };
-  }, [navigate, toast, recoverLives, recoverEnergy]);
+  const startNewGem = useCallback(() => {
+    if (shotsLeft <= 0) return endGame();
+    setGem({
+      id: Date.now(),
+      value: Math.floor(Math.random() * 10) + 1,
+      x: Math.random() * 80 + 10,
+      y: -10
+    });
+  }, [shotsLeft]);
 
   const startGame = () => {
-    if (energy < Math.abs(ENERGY_COST_PER_GAME)) {
+    if (userData?.energy < Math.abs(ENERGY_COST_PER_GAME)) {
       toast({
         title: 'Not enough energy!',
         description: `You need ${Math.abs(ENERGY_COST_PER_GAME)} energy to play.`,
-        variant: 'destructive',
+        variant: 'destructive'
       });
       return;
     }
-
-    setLives(5); // Reset lives
-    setScore(0); // Reset score
+    setScore(0);
+    setShotsLeft(SHOTS_PER_GAME);
     setIsGameActive(true);
-
-    updateUserEnergy(userData?.id, ENERGY_COST_PER_GAME); // Deduct energy
-    spawnGems();
+    startNewGem();
   };
 
-  const endGame = async () => {
+  const endGame = useCallback(async () => {
     setIsGameActive(false);
+    setGem(null);
+    if (!userData?.id) return;
 
-    const success = await updateUserBalance(userData?.id, score);
-    if (success) {
-      toast({
-        title: 'Game Over!',
-        description: `You earned ${score} STON.`,
-      });
+    const [energyOk, balanceOk] = await Promise.all([
+      updateUserEnergy(userData.id, ENERGY_COST_PER_GAME),
+      updateUserBalance(userData.id, score),
+    ]);
+
+    if (energyOk && balanceOk) {
+      const updatedUser = await getUserData(userData.id);
+      if (updatedUser) setUserData(updatedUser);
+      toast({ title: 'Game Over!', description: `You earned ${score} STON.` });
     } else {
-      toast({
-        title: 'Error',
-        description: 'Failed to update balance.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'Failed to update balance or energy.', variant: 'destructive' });
     }
+  }, [score, userData]);
+
+  const handleShoot = () => {
+    if (!isGameActive || !gem || shotsLeft <= 0) return;
+    setShotsLeft((prev) => prev - 1);
+
+    const gemEl = document.getElementById(`gem-${gem.id}`);
+    const area = document.getElementById('game-area');
+    if (!gemEl || !area) return;
+
+    const gemBottom = gemEl.getBoundingClientRect().bottom - area.getBoundingClientRect().top;
+    const zoneTop = area.clientHeight * 0.6;
+    const zoneBottom = area.clientHeight * 0.9;
+
+    if (gemBottom > zoneTop && gemBottom < zoneBottom) {
+      setScore((prev) => prev + gem.value);
+      toast({ title: 'Caught!', description: `+${gem.value} STON!` });
+    }
+    setGem(null);
+    if (shotsLeft > 1) setTimeout(startNewGem, 250);
+    else setTimeout(endGame, 300);
   };
 
-  const spawnGems = () => {
-    setGems(Array(5).fill(null).map(() => ({
-      id: Date.now() + Math.random(),
-      x: Math.random() * 80 + 10, // Random X position
-      y: -10, // Start above the screen
-      value: Math.floor(Math.random() * (GEM_REWARD_MAX - GEM_REWARD_MIN + 1)) + GEM_REWARD_MIN,
-    })));
-  };
-
-  const handleBallMovement = () => {
-    setBall((prev) => {
-      let { x, y, dx, dy } = prev;
-
-      // Check collisions with walls
-      if (x <= 0 || x >= 100) dx = -dx; // Left or right wall
-      if (y <= 0) dy = -dy; // Top wall
-
-      // Check collision with paddle
-      const paddleLeft = paddle.x - 10;
-      const paddleRight = paddle.x + 10;
-      if (y >= 95 && x >= paddleLeft && x <= paddleRight) dy = -dy;
-
-      // Check if ball falls below paddle
-      if (y > 100) {
-        setLives((prev) => prev - 1);
-        if (lives <= 1) {
-          endGame();
-        }
-        return { x: 50, y: 50, dx, dy }; // Reset ball position
-      }
-
-      return { x: x + dx, y: y + dy, dx, dy };
-    });
-  };
-
-  const movePaddle = (direction) => {
-    setPaddle((prev) => ({
-      x: Math.max(10, Math.min(90, prev.x + (direction === 'left' ? -PADDLE_SPEED : PADDLE_SPEED))),
-    }));
-  };
-
-  useEffect(() => {
+  const onGemAnimationComplete = () => {
     if (!isGameActive) return;
-
-    const interval = setInterval(handleBallMovement, GAME_SPEED);
-    return () => clearInterval(interval);
-  }, [isGameActive, ball, paddle]);
+    setShotsLeft((prev) => prev - 1);
+    setGem(null);
+    if (shotsLeft > 1) setTimeout(startNewGem, 250);
+    else setTimeout(endGame, 300);
+  };
 
   if (!userData) return null;
 
   return (
     <div className="ston-game-bg">
-      <div className="game-container">
+      <div className="absolute top-3 left-3 z-40">
+        <Button 
+          size="icon"
+          variant="ghost"
+          className="bg-slate-800/80 hover:bg-slate-700/90 rounded-full shadow-md"
+          onClick={() => navigate('/tasks')}
+          >
+          <ArrowLeft className="h-4 w-4 text-white" />
+        </Button>
+      </div>
+
+      <div className="game-container pt-2">
         <div className="game-header flex justify-between items-center p-2 text-xs">
           <div className="flex items-center gap-2">
-            <p className="game-header-text font-semibold">{userData.firstName}</p>
-            <div className="flex items-center game-balance text-xs">
-              Score: {score}
-            </div>
-          </div>
-          <div className="game-energy">Lives: {lives}</div>
-        </div>
-        <div className="game-content">
-          <div id="game-area" ref={gameAreaRef} className="game-area relative">
-            {gems.map((gem) => (
-              <div key={gem.id} style={{ left: `${gem.x}%`, top: `${gem.y}%` }} className="gem">
-                {gem.value}
-              </div>
-            ))}
-            <div
-              className="ball"
-              style={{ left: `${ball.x}%`, top: `${ball.y}%` }}
-            ></div>
-            <div
-              className="paddle"
-              style={{ left: `${paddle.x}%` }}
-            ></div>
-          </div>
-          {!isGameActive ? (
-            <Button onClick={startGame}>Start Game</Button>
-          ) : (
+            {userData.profilePicUrl ? (
+              <img src={userData.profilePicUrl} alt={userData.firstName} className="w-8 h-8 rounded-full border border-sky-400" />
+            ) : (
+              <UserCircle className="w-8 h-8 text-sky-400" />
+            )}
             <div>
-              <Button onMouseDown={() => movePaddle('left')}>Left</Button>
-              <Button onMouseDown={() => movePaddle('right')}>Right</Button>
+              <p className="game-header-text font-semibold">{userData.firstName}</p>
+              <div className="flex items-center game-balance text-xs">
+                <DollarSign className="w-3 h-3 mr-1" /> {userData.balance}
+              </div>
             </div>
-          )}
+          </div>
+          <div className="game-energy flex items-center gap-1 px-3 py-1 text-xs rounded bg-slate-700 text-yellow-200">
+            <Zap className="w-4 h-4" />
+            <span className="font-bold">{userData.energy}</span>
+          </div>
+        </div>
+
+        <div className="game-content px-2">
+          <div className="w-full max-w-sm mx-auto">
+            <h1 className="game-title text-2xl font-bold text-center mb-1">STON Game</h1>
+            <p className="game-subtitle text-xs text-center mb-2">Catch falling STONs and earn rewards!</p>
+
+            <div id="game-area" className="game-area relative w-full rounded-lg overflow-hidden mb-2">
+              <AnimatePresence>
+                {isGameActive && gem && (
+                  <motion.div
+                    id={`gem-${gem.id}`}
+                    key={gem.id}
+                    className="absolute gem"
+                    initial={{ y: gem.y, x: `${gem.x}%` }}
+                    animate={{ y: '110%' }}
+                    exit={{ opacity: 0, scale: 0.5 }}
+                    transition={{ duration: GAME_DURATION_MS / 1000, ease: 'linear' }}
+                    onAnimationComplete={onGemAnimationComplete}
+                  >
+                    <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-slate-800">
+                      {gem.value}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              <div className="catch-zone absolute bottom-0 left-0 right-0 h-1/3 pointer-events-none">
+                <div className="h-full flex items-center justify-center">
+                  <p className="catch-zone-text text-[10px] font-medium">Catch Zone</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center mb-2 text-xs">
+              <div className="flex items-center game-score">
+                <Gem className="w-4 h-4 mr-1 text-emerald-400" />
+                <span className="font-bold">Score: {score}</span>
+              </div>
+              <div className="flex items-center">
+                <span className="game-score mr-1">Shots:</span>
+                <span className="game-shots text-base font-bold">{shotsLeft}</span>
+              </div>
+            </div>
+
+            {!isGameActive ? (
+              <Button
+                onClick={startGame}
+                className="w-full text-sm py-4 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold shadow-md"
+              >
+                Start Game
+              </Button>
+            ) : (
+              <Button
+                onClick={handleShoot}
+                className="w-full text-sm py-4 bg-gradient-to-r from-sky-500 to-cyan-600 text-white font-bold shadow-md"
+                disabled={!gem || shotsLeft <= 0}
+              >
+                Shoot!
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>
