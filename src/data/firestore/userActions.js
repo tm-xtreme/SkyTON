@@ -1,18 +1,8 @@
 import React from 'react';
 import { db } from '@/lib/firebase';
 import {
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  writeBatch,
-  serverTimestamp,
-  increment,
-  arrayUnion,
-  arrayRemove,
-  Timestamp,
-  collection,
-  getDocs
+  doc, getDoc, setDoc, updateDoc, writeBatch,
+  serverTimestamp, increment, arrayUnion, arrayRemove, Timestamp
 } from "firebase/firestore";
 import { defaultFirestoreUser } from '@/data/defaults';
 import { generateReferralLink } from '@/data/telegramUtils';
@@ -49,6 +39,7 @@ export const getOrCreateUser = async (telegramUserData) => {
 
       if (Object.keys(updates).length > 0) {
         await updateDoc(userRef, updates);
+        console.log("User profile updated from Telegram data.");
         return { id: userId, ...existingData, ...updates };
       }
 
@@ -65,10 +56,23 @@ export const getOrCreateUser = async (telegramUserData) => {
       newUser.referralLink = generateReferralLink(userId);
 
       await setDoc(userRef, { ...newUser, joinedAt: serverTimestamp() });
+      console.log("New user created from WebApp.");
       return { id: userId, ...newUser };
     }
   } catch (error) {
     console.error("Error in getOrCreateUser:", error);
+    return null;
+  }
+};
+
+export const getUserById = async (userId) => {
+  if (!userId) return null;
+  try {
+    const userRef = doc(db, "users", userId);
+    const userSnap = await getDoc(userRef);
+    return userSnap.exists() ? { id: userId, ...userSnap.data() } : null;
+  } catch (error) {
+    console.error(`Error fetching user ${userId}:`, error);
     return null;
   }
 };
@@ -81,6 +85,7 @@ export const updateUser = async (userId, updates) => {
   const userRef = doc(db, "users", userId);
   try {
     await updateDoc(userRef, updates);
+    console.log(`User ${userId} updated successfully.`);
     return true;
   } catch (error) {
     console.error(`Error updating user ${userId}:`, error);
@@ -116,6 +121,7 @@ export const completeTaskForUser = async (userId, taskId) => {
   try {
     const userSnap = await getDoc(userRef);
     if (userSnap.exists() && userSnap.data().tasks?.[taskId]) {
+      console.log(`Task ${taskId} already completed for user ${userId}.`);
       return true;
     }
 
@@ -124,6 +130,7 @@ export const completeTaskForUser = async (userId, taskId) => {
       balance: increment(reward),
       pendingVerificationTasks: arrayRemove(taskId)
     });
+    console.log(`Task ${taskId} completed for user ${userId}, balance updated.`);
     return true;
   } catch (error) {
     console.error(`Error completing task ${taskId} for user ${userId}:`, error);
@@ -138,13 +145,20 @@ export const requestManualVerificationForUser = async (userId, taskId) => {
     const userSnap = await getDoc(userRef);
     if (userSnap.exists()) {
       const userData = userSnap.data();
-      if (userData.tasks?.[taskId]) return false;
-      if (userData.pendingVerificationTasks?.includes(taskId)) return true;
+      if (userData.tasks?.[taskId]) {
+        console.log(`Task ${taskId} already completed for user ${userId}. Cannot request verification.`);
+        return false;
+      }
+      if (userData.pendingVerificationTasks?.includes(taskId)) {
+        console.log(`Task ${taskId} already pending verification for user ${userId}.`);
+        return true;
+      }
     }
 
     await updateDoc(userRef, {
       pendingVerificationTasks: arrayUnion(taskId)
     });
+    console.log(`Task ${taskId} added to pending verification for user ${userId}.`);
     return true;
   } catch (error) {
     console.error(`Error requesting verification for task ${taskId} for user ${userId}:`, error);
@@ -159,6 +173,7 @@ export const rejectManualVerificationForUser = async (userId, taskId) => {
     await updateDoc(userRef, {
       pendingVerificationTasks: arrayRemove(taskId)
     });
+    console.log(`Task ${taskId} rejected (removed from pending) for user ${userId}.`);
     return true;
   } catch (error) {
     console.error(`Error rejecting verification for task ${taskId} for user ${userId}:`, error);
@@ -191,6 +206,7 @@ export const performCheckInForUser = async (userId) => {
         canCheckIn = false;
       }
     } else if (lastCheckIn) {
+      console.warn("lastCheckIn is not a Firestore Timestamp:", lastCheckIn);
       canCheckIn = true;
     }
 
@@ -201,38 +217,16 @@ export const performCheckInForUser = async (userId) => {
         lastCheckIn: serverTimestamp(),
         [taskUpdateKey]: true
       });
+      console.log(`User ${userId} checked in successfully.`);
       return { success: true, reward: reward };
     } else {
+      console.log(`User ${userId} already checked in today.`);
       return { success: false, message: 'Already checked in today.' };
     }
+
   } catch (error) {
     console.error(`Error during check-in for user ${userId}:`, error);
     return { success: false, message: 'An error occurred.' };
   }
 };
-
-export const getAllUsers = async () => {
-  try {
-    const snapshot = await getDocs(collection(db, 'users'));
-    const users = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-    return users;
-  } catch (error) {
-    console.error("Error fetching all users:", error);
-    return [];
-  }
-};
-
-export const toggleUserBanStatus = async (telegramId, newStatus) => {
-  try {
-    const userRef = doc(db, "users", telegramId.toString());
-    await updateDoc(userRef, { isBanned: newStatus });
-    return true;
-  } catch (error) {
-    console.error(`Error updating ban status for ${telegramId}:`, error);
-    return false;
-  }
-};
-                       
+      
