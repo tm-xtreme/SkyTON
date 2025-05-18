@@ -81,9 +81,9 @@
   }
 }
 
-/* ===================== STON BRICK BREAKER GAME STYLES ===================== */
-.ston-breaker-bg {
-  background: linear-gradient(180deg, #0f172a 0%, #1e293b 30%, #334155 70%, #475569 100%);
+/* ===================== STON DROP GAME STYLES ===================== */
+.stondrop-bg {
+  background: linear-gradient(180deg, #020617, #0f172a, #1e293b);
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
@@ -92,112 +92,116 @@
   z-index: 50;
 }
 
-.breaker-container {
-  height: 100%;
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-  overflow: hidden;
-  padding-bottom: 0;
-}
-
-.breaker-content {
-  overflow: hidden;
+.stondrop-container {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  padding: 1rem;
+  height: 100%;
+  padding: 0.5rem;
+  gap: 1rem;
 }
 
-.breaker-header {
+.stondrop-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   background: rgba(15, 23, 42, 0.95);
   border-bottom: 2px solid rgba(100, 116, 139, 0.3);
   backdrop-filter: blur(8px);
-}
-
-.breaker-header-text {
+  padding: 0.5rem 1rem;
   color: #f8fafc;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
-.breaker-balance {
-  color: #4ade80;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-}
-
-.breaker-energy {
-  background: rgba(51, 65, 85, 0.9);
-  border: 1px solid rgba(100, 116, 139, 0.3);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-.breaker-title {
-  color: #f8fafc;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-  letter-spacing: 0.05em;
-}
-
-.breaker-subtitle {
-  color: #cbd5e1;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-}
-
-.breaker-score {
-  color: #f8fafc;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-}
-
-.breaker-lives {
-  color: #fbbf24;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-}
-
-.breaker-lives-count {
-  color: #f472b6;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-}
-
-.breaker-game-area {
-  aspect-ratio: 3/4;
-  max-height: 60vh;
-  max-height: 60dvh;
-  background: rgba(15, 23, 42, 0.8);
-  border: 2px solid rgba(56, 189, 248, 0.3);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+.stondrop-game-area {
   position: relative;
-  margin: 0 auto;
+  flex: 1;
+  border: 2px solid rgba(56, 189, 248, 0.3);
+  background: rgba(15, 23, 42, 0.8);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+  border-radius: 1rem;
+  overflow: hidden;
 }
 
-.breaker-gem {
-  box-shadow: 0 0 15px #34d399, 0 0 25px #059669;
-  z-index: 2;
-}
-
-.breaker-ball {
-  z-index: 3;
-  box-shadow: 0 0 8px #38bdf8, 0 0 16px #0ea5e9;
-}
-
-.breaker-paddle {
-  z-index: 4;
+.stondrop-object {
+  position: absolute;
+  width: 2.5rem;
+  height: 2.5rem;
+  transition: transform 0.2s;
   cursor: pointer;
 }
 
-.breaker-overlay {
-  background: rgba(0,0,0,0.6);
-  z-index: 10;
-  border-radius: 1rem;
+.stondrop-ston {
+  box-shadow: 0 0 15px #4ade80, 0 0 25px #22c55e;
 }
 
-@media (max-width: 400px) {
-  .breaker-game-area {
-    width: 98vw !important;
-    height: 70vw !important;
-    min-width: 0;
-    min-height: 0;
+.stondrop-bomb {
+  box-shadow: 0 0 15px #f87171, 0 0 25px #ef4444;
+}
+
+.stondrop-explosion-screen {
+  position: absolute;
+  inset: 0;
+  background: rgba(239, 68, 68, 0.8);
+  z-index: 10;
+  pointer-events: none;
+  animation: flash 0.3s ease-out;
+}
+
+@keyframes flash {
+  0% { opacity: 0; }
+  30% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.stondrop-footer {
+  background: rgba(30, 41, 59, 0.95);
+  border-top: 1px solid rgba(100, 116, 139, 0.2);
+  padding: 0.5rem 1rem;
+  color: #cbd5e1;
+  font-size: 0.9rem;
+  display: flex;
+  justify-content: space-between;
+}
+
+.stondrop-button {
+  background: #22c55e;
+  color: #fff;
+  font-weight: 600;
+  border-radius: 0.5rem;
+  padding: 0.5rem 1.25rem;
+  transition: background 0.2s ease;
+}
+
+.stondrop-button:hover {
+  background: #16a34a;
+}
+
+.stondrop-lives {
+  color: #facc15;
+}
+
+.stondrop-energy {
+  color: #0ea5e9;
+}
+
+@media (max-width: 500px) {
+  .stondrop-object {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .stondrop-game-area {
+    border-radius: 0.5rem;
+  }
+
+  .stondrop-header,
+  .stondrop-footer {
+    flex-direction: column;
+    gap: 0.25rem;
+    text-align: center;
   }
 }
 
 /* ===================== EXTRAS ===================== */
 .glass-card {
   @apply bg-card/70 backdrop-blur-lg border border-border/20 shadow-lg;
-  }
+}
