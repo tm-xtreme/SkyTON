@@ -1,139 +1,134 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
-import { Button } from '@/components/gui/button';
-import { useToast } from '@/components/gui/use-toast';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, increment } from 'firebase/firestore';
+import { useEffect, useRef, useState } from "react";
+import { ChevronLeft } from "lucide-react";
+import { getDoc, doc } from "firebase/firestore";
+import { db } from "@/lib/firebaseConfig";
+import ston from "@/assets/ston.png";
+import bomb from "@/assets/bomb.png";
+import catchSound from "@/assets/catch.mp3";
+import explosionSound from "@/assets/explosion.mp3";
 
-const GAME_DURATION_MS = 30000; // 30 seconds
-const DROP_INTERVAL_MS = 1000; // 1 second
-const ENERGY_COST = 20;
+const STON_VALUES = [1, 3, 5, 10];
 
-const StonDropGame = ({ onExit }) => {
-  const { toast } = useToast();
+const getRandomSton = () => ({
+  id: crypto.randomUUID(),
+  type: Math.random() < 0.85 ? "ston" : "bomb",
+  value: STON_VALUES[Math.floor(Math.random() * STON_VALUES.length)],
+  left: Math.random() * 90,
+  speed: 2 + Math.random() * 3,
+});
+
+export default function StonDropGame({ userId, setActiveView }) {
   const [userData, setUserData] = useState(null);
-  const [drops, setDrops] = useState([]);
+  const [fallingItems, setFallingItems] = useState([]);
   const [score, setScore] = useState(0);
-  const [energy, setEnergy] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
   const gameAreaRef = useRef(null);
-  const dropIdRef = useRef(0);
-  const dropIntervalRef = useRef(null);
-  const gameTimeoutRef = useRef(null);
-  const collectSoundRef = useRef(null);
+  const [flashRed, setFlashRed] = useState(false);
+
+  // Audio refs
+  const catchAudio = useRef(null);
+  const explosionAudio = useRef(null);
 
   useEffect(() => {
-    const cachedUser = sessionStorage.getItem("cachedUser");
-    if (!cachedUser) {
-      toast({
-        title: "User Not Found",
-        description: "Please launch the game via the dashboard.",
-        variant: "destructive",
-      });
-      onExit();
-      return;
-    }
-    const user = JSON.parse(cachedUser);
-    setUserData(user);
-    setEnergy(user.energy);
-  }, [onExit, toast]);
+    const fetchUser = async () => {
+      const snap = await getDoc(doc(db, "users", userId));
+      setUserData(snap.data());
+    };
+    fetchUser();
+  }, [userId]);
 
-  const startGame = async () => {
-    if (energy < ENERGY_COST) {
-      toast({
-        title: 'Not enough energy!',
-        description: `You need ${ENERGY_COST} energy to play.`,
-        variant: 'destructive'
-      });
-      return;
-    }
+  useEffect(() => {
+    const dropInterval = setInterval(() => {
+      setFallingItems(prev => [...prev, getRandomSton()]);
+    }, 1000);
+    return () => clearInterval(dropInterval);
+  }, []);
 
-    setIsPlaying(true);
-    setScore(0);
-    setDrops([]);
+  useEffect(() => {
+    const moveInterval = setInterval(() => {
+      setFallingItems(prev =>
+        prev
+          .map(item => ({ ...item, top: (item.top || 0) + item.speed }))
+          .filter(item => item.top < 100)
+      );
+    }, 50);
+    return () => clearInterval(moveInterval);
+  }, []);
 
-    // Deduct energy
-    await updateDoc(doc(db, 'users', userData.id), { energy: increment(-ENERGY_COST) });
-    setEnergy(prev => prev - ENERGY_COST);
+  const handleClick = (itemId, type, value) => {
+    setFallingItems(prev => prev.filter(item => item.id !== itemId));
 
-    // Start dropping tokens
-    dropIntervalRef.current = setInterval(() => {
-      const dropId = dropIdRef.current++;
-      const left = Math.random() * 90 + 5; // Random position between 5% and 95%
-      const value = Math.ceil(Math.random() * 5); // Random value between 1 and 5
-      setDrops(prev => [...prev, { id: dropId, left, value }]);
-    }, DROP_INTERVAL_MS);
-
-    // End game after duration
-    gameTimeoutRef.current = setTimeout(() => {
-      endGame();
-    }, GAME_DURATION_MS);
-  };
-
-  const endGame = async () => {
-    clearInterval(dropIntervalRef.current);
-    clearTimeout(gameTimeoutRef.current);
-    setIsPlaying(false);
-    setDrops([]);
-
-    // Update balance
-    await updateDoc(doc(db, 'users', userData.id), { balance: increment(score) });
-    toast({ title: 'Game Over!', description: `You earned ${score} STON.` });
-
-    // Fetch updated user data
-    const ref = doc(db, 'users', userData.id);
-    const snap = await getDoc(ref);
-    if (snap.exists()) {
-      const updatedUser = { id: userData.id, ...snap.data() };
-      setUserData(updatedUser);
-      setEnergy(updatedUser.energy);
-    }
-  };
-
-  const collectDrop = (id, value) => {
-    setScore(prev => prev + value);
-    setDrops(prev => prev.filter(drop => drop.id !== id));
-    if (collectSoundRef.current) {
-      collectSoundRef.current.currentTime = 0;
-      collectSoundRef.current.play();
+    if (type === "ston") {
+      catchAudio.current?.play();
+      setScore(prev => prev + value);
+    } else {
+      explosionAudio.current?.play();
+      navigator.vibrate?.([300]);
+      setFlashRed(true);
+      setTimeout(() => setFlashRed(false), 500);
+      setScore(prev => Math.max(0, prev - 5));
     }
   };
 
   return (
-    <div className="relative w-full h-screen bg-[#0c0f13] overflow-hidden">
-      <audio ref={collectSoundRef} src="/assets/collect_sound.mp3" preload="auto" />
-      <div className="absolute top-4 left-4">
-        <Button variant="secondary" onClick={onExit}>Back</Button>
-      </div>
+    <div
+      ref={gameAreaRef}
+      className={`relative w-full h-screen overflow-hidden bg-gradient-to-b from-blue-900 to-sky-800 text-white ${
+        flashRed ? "bg-red-700 transition duration-300" : ""
+      }`}
+    >
+      {/* Audio Elements */}
+      <audio ref={catchAudio} src={catchSound} preload="auto" />
+      <audio ref={explosionAudio} src={explosionSound} preload="auto" />
 
-      <div className="absolute top-4 right-4 text-white space-y-1 text-right">
-        <div className="text-md font-bold">STON: {score}</div>
-        <div className="text-sm">Energy: {energy}/100</div>
-      </div>
-
-      {!isPlaying && (
-        <div className="absolute inset-0 flex items-center justify-center z-10">
-          <Button onClick={startGame}>Start Drop</Button>
+      {/* Header */}
+      <div className="absolute top-0 left-0 w-full flex items-center justify-between p-4 bg-black/40 z-10">
+        <button onClick={() => setActiveView("TasksSection")}>
+          <ChevronLeft className="w-7 h-7 text-white" />
+        </button>
+        <div className="flex items-center space-x-3">
+          <img
+            src={userData?.profilePicUrl}
+            alt="user"
+            className="w-10 h-10 rounded-full"
+          />
+          <div>
+            <p className="text-sm font-semibold">{userData?.firstName}</p>
+            <div className="flex gap-2 mt-1 text-xs">
+              <div className="flex items-center gap-1">
+                <img src={ston} className="w-4 h-4" />
+                {userData?.balance}
+              </div>
+              <div className="flex items-center gap-1">
+                ⚡ {userData?.energy}
+              </div>
+            </div>
+          </div>
         </div>
-      )}
-
-      <div ref={gameAreaRef} className="relative w-full h-full">
-        {drops.map(drop => (
-          <motion.div
-            key={drop.id}
-            initial={{ top: -50 }}
-            animate={{ top: '90vh' }}
-            transition={{ duration: 4, ease: 'linear' }}
-            onClick={() => collectDrop(drop.id, drop.value)}
-            className="absolute w-10 h-10 rounded-full bg-cyan-400 flex items-center justify-center text-white font-bold"
-            style={{ left: `${drop.left}%`, cursor: 'pointer' }}
-          >
-            +{drop.value}
-          </motion.div>
-        ))}
+        <div className="font-bold text-yellow-300">Score: {score}</div>
       </div>
+
+      {/* Falling Items */}
+      {fallingItems.map(item => (
+        <div
+          key={item.id}
+          onClick={() => handleClick(item.id, item.type, item.value)}
+          className="absolute"
+          style={{
+            left: `${item.left}%`,
+            top: `${item.top || 0}%`,
+            transition: "top 0.05s linear",
+            cursor: "pointer",
+            width: "40px",
+            height: "40px",
+          }}
+        >
+          <img
+            src={item.type === "bomb" ? bomb : ston}
+            alt={item.type}
+            className="w-full h-full"
+          />
+        </div>
+      ))}
     </div>
   );
-};
-
-export default StonDropGame;
+}
