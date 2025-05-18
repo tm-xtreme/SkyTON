@@ -1,134 +1,199 @@
-import { useEffect, useRef, useState } from "react";
-import { ChevronLeft } from "lucide-react";
-import { getDoc, doc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import ston from "@/assets/ston.png";
-import bomb from "@/assets/bomb.png";
-import catchSound from "@/assets/catch.mp3";
-import explosionSound from "@/assets/explosion.mp3";
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Button } from '@/components/gui/button';
+import { useToast } from '@/components/gui/use-toast';
+import { Gem, Zap, UserCircle, DollarSign, ArrowLeft } from 'lucide-react';
+import { db } from '@/lib/firebase';
+import { doc, getDoc, updateDoc, increment } from 'firebase/firestore';
+import clsx from 'clsx';
 
-const STON_VALUES = [1, 3, 5, 10];
+const GAME_DURATION_MS = 2500;
+const SHOTS_PER_GAME = 5;
+const ENERGY_COST_PER_GAME = -20;
 
-const getRandomSton = () => ({
-  id: crypto.randomUUID(),
-  type: Math.random() < 0.85 ? "ston" : "bomb",
-  value: STON_VALUES[Math.floor(Math.random() * STON_VALUES.length)],
-  left: Math.random() * 90,
-  speed: 2 + Math.random() * 3,
-});
+const randomReward = () => {
+  const rewards = [1, 2, 3, 5, 10];
+  return rewards[Math.floor(Math.random() * rewards.length)];
+};
 
-export default function StonDropGame({ userId, setActiveView }) {
+function StonDropGame() {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
   const [userData, setUserData] = useState(null);
-  const [fallingItems, setFallingItems] = useState([]);
   const [score, setScore] = useState(0);
-  const gameAreaRef = useRef(null);
-  const [flashRed, setFlashRed] = useState(false);
+  const [shotsLeft, setShotsLeft] = useState(SHOTS_PER_GAME);
+  const [isGameActive, setIsGameActive] = useState(false);
+  const [gem, setGem] = useState(null);
+  const [showExplosion, setShowExplosion] = useState(false);
 
-  // Audio refs
-  const catchAudio = useRef(null);
-  const explosionAudio = useRef(null);
-
-  useEffect(() => {
-    const fetchUser = async () => {
-      const snap = await getDoc(doc(db, "users", userId));
-      setUserData(snap.data());
-    };
-    fetchUser();
-  }, [userId]);
-
-  useEffect(() => {
-    const dropInterval = setInterval(() => {
-      setFallingItems(prev => [...prev, getRandomSton()]);
-    }, 1000);
-    return () => clearInterval(dropInterval);
-  }, []);
-
-  useEffect(() => {
-    const moveInterval = setInterval(() => {
-      setFallingItems(prev =>
-        prev
-          .map(item => ({ ...item, top: (item.top || 0) + item.speed }))
-          .filter(item => item.top < 100)
-      );
-    }, 50);
-    return () => clearInterval(moveInterval);
-  }, []);
-
-  const handleClick = (itemId, type, value) => {
-    setFallingItems(prev => prev.filter(item => item.id !== itemId));
-
-    if (type === "ston") {
-      catchAudio.current?.play();
-      setScore(prev => prev + value);
-    } else {
-      explosionAudio.current?.play();
-      navigator.vibrate?.([300]);
-      setFlashRed(true);
-      setTimeout(() => setFlashRed(false), 500);
-      setScore(prev => Math.max(0, prev - 5));
+  const getUserData = async (userId) => {
+    try {
+      const ref = doc(db, 'users', userId);
+      const snap = await getDoc(ref);
+      return snap.exists() ? { id: userId, ...snap.data() } : null;
+    } catch (err) {
+      console.error('Error loading user data:', err);
+      return null;
     }
   };
 
-  return (
-    <div
-      ref={gameAreaRef}
-      className={`relative w-full h-screen overflow-hidden bg-gradient-to-b from-blue-900 to-sky-800 text-white ${
-        flashRed ? "bg-red-700 transition duration-300" : ""
-      }`}
-    >
-      {/* Audio Elements */}
-      <audio ref={catchAudio} src={catchSound} preload="auto" />
-      <audio ref={explosionAudio} src={explosionSound} preload="auto" />
+  const updateUserEnergy = async (userId, amount) => {
+    try {
+      await updateDoc(doc(db, 'users', userId), { energy: increment(amount) });
+      return true;
+    } catch (err) {
+      console.error('Energy update error:', err);
+      return false;
+    }
+  };
 
-      {/* Header */}
-      <div className="absolute top-0 left-0 w-full flex items-center justify-between p-4 bg-black/40 z-10">
-        <button onClick={() => setActiveView("TasksSection")}>
-          <ChevronLeft className="w-7 h-7 text-white" />
-        </button>
-        <div className="flex items-center space-x-3">
-          <img
-            src={userData?.profilePicUrl}
-            alt="user"
-            className="w-10 h-10 rounded-full"
-          />
-          <div>
-            <p className="text-sm font-semibold">{userData?.firstName}</p>
-            <div className="flex gap-2 mt-1 text-xs">
-              <div className="flex items-center gap-1">
-                <img src={ston} className="w-4 h-4" />
-                {userData?.balance}
-              </div>
-              <div className="flex items-center gap-1">
-                ⚡ {userData?.energy}
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="font-bold text-yellow-300">Score: {score}</div>
+  const updateUserBalance = async (userId, amount) => {
+    try {
+      await updateDoc(doc(db, 'users', userId), { balance: increment(amount) });
+      return true;
+    } catch (err) {
+      console.error('Balance update error:', err);
+      return false;
+    }
+  };
+
+  useEffect(() => {
+    const cachedUser = sessionStorage.getItem("cachedUser");
+    if (!cachedUser) {
+      toast({
+        title: "User Not Found",
+        description: "Please launch the game via the dashboard.",
+        variant: "destructive",
+      });
+      navigate("/tasks");
+      return;
+    }
+    const user = JSON.parse(cachedUser);
+    setUserData(user);
+  }, [navigate, toast]);
+
+  const spawnGem = useCallback(() => {
+    if (!isGameActive || shotsLeft <= 0) return;
+
+    const reward = randomReward();
+    const newGem = {
+      id: Date.now(),
+      x: Math.random() * 90 + 5,
+      reward,
+    };
+    setGem(newGem);
+
+    setTimeout(() => {
+      if (shotsLeft > 0) setShotsLeft((prev) => prev - 1);
+      setGem(null);
+    }, GAME_DURATION_MS);
+  }, [isGameActive, shotsLeft]);
+
+  const handleStartGame = async () => {
+    if (!userData) return;
+
+    if (userData.energy < 20) {
+      toast({
+        title: "Not Enough Energy",
+        description: "You need at least 20 energy to play.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const success = await updateUserEnergy(userData.id, ENERGY_COST_PER_GAME);
+    if (!success) return;
+
+    setShotsLeft(SHOTS_PER_GAME);
+    setScore(0);
+    setIsGameActive(true);
+    spawnGem();
+  };
+
+  const handleGemClick = async (reward) => {
+    setScore((prev) => prev + reward);
+    setGem(null);
+    setShowExplosion(true);
+    await updateUserBalance(userData.id, reward);
+
+    setTimeout(() => setShowExplosion(false), 1000);
+    spawnGem();
+  };
+
+  return (
+    <div className={clsx("ston-game-bg relative h-screen w-screen overflow-hidden", showExplosion && "bg-red-700 transition-all duration-1000")}>
+      <div className="absolute top-3 left-3 z-40">
+        <Button 
+          size="icon"
+          variant="ghost"
+          className="bg-slate-800/80 hover:bg-slate-700/90 rounded-full shadow-md"
+          onClick={() => navigate('/tasks')}
+        >
+          <ArrowLeft className="h-4 w-4 text-white" />
+        </Button>
       </div>
 
-      {/* Falling Items */}
-      {fallingItems.map(item => (
-        <div
-          key={item.id}
-          onClick={() => handleClick(item.id, item.type, item.value)}
-          className="absolute"
-          style={{
-            left: `${item.left}%`,
-            top: `${item.top || 0}%`,
-            transition: "top 0.05s linear",
-            cursor: "pointer",
-            width: "40px",
-            height: "40px",
-          }}
-        >
-          <img
-            src={item.type === "bomb" ? bomb : ston}
-            alt={item.type}
-            className="w-full h-full"
-          />
+      <div className="absolute top-3 right-3 flex items-center gap-4 text-white z-40">
+        {userData?.profilePicUrl ? (
+          <img src={userData.profilePicUrl} alt="profile" className="w-8 h-8 rounded-full border border-sky-400" />
+        ) : (
+          <UserCircle className="w-8 h-8" />
+        )}
+        <div className="flex items-center gap-2">
+          <Zap className="w-4 h-4 text-yellow-400" />
+          {userData?.energy}
         </div>
-      ))}
+        <div className="flex items-center gap-2">
+          <DollarSign className="w-4 h-4 text-green-400" />
+          {userData?.balance}
+        </div>
+      </div>
+
+      <div className="flex flex-col justify-center items-center h-full">
+        {!isGameActive ? (
+          <Button onClick={handleStartGame} className="text-xl px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full">
+            Start Game
+          </Button>
+        ) : (
+          <>
+            <div className="text-white mb-4 text-xl">Score: {score}</div>
+            <div className="text-white mb-6">Shots Left: {shotsLeft}</div>
+          </>
+        )}
+      </div>
+
+      <AnimatePresence>
+        {gem && (
+          <motion.div
+            key={gem.id}
+            initial={{ y: -100, opacity: 0 }}
+            animate={{ y: "90vh", opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: GAME_DURATION_MS / 1000 }}
+            className="absolute"
+            style={{ left: `${gem.x}%`, top: 0 }}
+          >
+            <motion.div
+              onClick={() => handleGemClick(gem.reward)}
+              className={clsx(
+                "cursor-pointer rounded-full bg-amber-500 text-white flex items-center justify-center shadow-lg border-2 border-yellow-300",
+              )}
+              style={{
+                width: `${30 + gem.reward * 5}px`,
+                height: `${30 + gem.reward * 5}px`,
+                fontSize: `${12 + gem.reward * 2}px`,
+              }}
+              whileTap={{ scale: 0.8 }}
+            >
+              +{gem.reward}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
+
+export default StonDropGame;
