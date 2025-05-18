@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft } from "lucide-react";
 import { getDoc, doc } from "firebase/firestore";
-import { db } from "@/lib/firebaseConfig";
+import { db } from "@/lib/firebase";
 import ston from "@/assets/ston.png";
 import bomb from "@/assets/bomb.png";
 import catchSound from "@/assets/catch.mp3";
