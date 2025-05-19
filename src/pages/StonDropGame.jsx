@@ -287,8 +287,8 @@ export default function StonDropGame() {
         <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-80 z-40">
           <div className="text-white text-center bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl px-8 py-10 shadow-2xl border border-gray-700 animate-pulse">
             <h1 className="text-4xl font-extrabold mb-4 text-green-400 drop-shadow-lg">Congratulations!</h1>
-            <p className="text-2xl mb-2">You earned <span className="text-yellow-400">${score}</span></p>
-            <p className="text-lg mb-1">Balance: ${finalBalance}</p>
+            <p className="text-2xl mb-2">You earned <span className="text-yellow-400">${score} STON</span></p>
+            <p className="text-lg mb-1">Balance: ${finalBalance} STON</p>
             <p className="text-lg mb-6">Energy Left: {finalEnergy}</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button
@@ -314,7 +314,7 @@ export default function StonDropGame() {
           <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl border border-gray-700">
             <h3 className="text-xl font-bold text-white mb-4">Quit Game?</h3>
             <p className="text-gray-300 mb-6">
-              Your current score of ${score} will be added to your balance. Are you sure you want to quit?
+              Your current score of ${score} STON will be added to your balance. Are you sure you want to quit?
             </p>
             <div className="flex justify-end gap-4">
               <Button
