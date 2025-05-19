@@ -97,7 +97,6 @@ export default function StonDropGame() {
     fetchUser();
   }, [userId, navigate, toast]);
 
-  // Auto remove dropped items
   useEffect(() => {
     if (!droppables.length) return;
     const timers = droppables.map(drop =>
@@ -110,7 +109,6 @@ export default function StonDropGame() {
 
   const handleDropClick = useCallback((drop) => {
     setDroppables(prev => prev.filter(d => d.id !== drop.id));
-
     if (drop.isBomb) {
       if (navigator.vibrate) navigator.vibrate(300);
       explosionAudio.current.play();
@@ -149,11 +147,11 @@ export default function StonDropGame() {
         backgroundPosition: 'center',
       }}
     >
-      {/* Top bar: back + user + timer + score */}
+      {/* Top bar */}
       <div className="absolute top-3 left-3 right-3 flex justify-between items-center gap-4 text-white text-sm z-20 bg-black bg-opacity-50 rounded-lg px-4 py-2 shadow-lg select-none">
         <div className="flex items-center gap-3">
           <ArrowLeft
-            className="cursor-pointer w-6 h-6 hover:text-gray-300 transition-colors"
+            className="cursor-pointer w-6 h-6 hover:text-gray-300"
             onClick={() => navigate('/tasks')}
             title="Back"
           />
@@ -180,19 +178,22 @@ export default function StonDropGame() {
         </div>
       </div>
 
-      {/* Start button */}
+      {/* Start screen */}
       {!gameStarted && !isGameOver && (
-        <div className="absolute inset-0 flex items-center justify-center z-30 bg-black bg-opacity-70">
-          <Button
-            className="text-white bg-green-600 hover:bg-green-700 text-lg px-6 py-3 rounded-lg"
-            onClick={startGame}
-          >
-            Start Game
-          </Button>
+        <div className="absolute inset-0 flex items-center justify-center z-30 bg-black bg-opacity-80">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold text-white mb-6 drop-shadow-md">STON DROP</h1>
+            <Button
+              className="text-white bg-gradient-to-br from-green-500 to-green-700 hover:from-green-600 hover:to-green-800 px-8 py-4 text-lg rounded-xl shadow-xl"
+              onClick={startGame}
+            >
+              Start Game
+            </Button>
+          </div>
         </div>
       )}
 
-      {/* Dropping STONs/Bombs */}
+      {/* Falling items */}
       <AnimatePresence>
         {droppables.map(drop => (
           <motion.img
@@ -216,21 +217,21 @@ export default function StonDropGame() {
         ))}
       </AnimatePresence>
 
-      {/* Red flash effect */}
+      {/* Red flash */}
       {redFlash && (
         <div className="absolute inset-0 bg-red-600 opacity-70 z-30 pointer-events-none transition-opacity duration-1000" />
       )}
 
-      {/* Game over popup */}
+      {/* Game over screen */}
       {isGameOver && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-90 z-40">
-          <div className="text-white text-center bg-gray-900 bg-opacity-90 rounded-xl p-10 shadow-xl max-w-xs mx-4">
-            <h1 className="text-3xl font-bold mb-4">Congratulations!</h1>
-            <p className="text-xl mb-2">You earned ${score}</p>
-            <p className="text-base mb-1">Balance: ${finalBalance}</p>
-            <p className="text-base mb-6">Remaining Energy: {finalEnergy}</p>
+        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-80 z-40">
+          <div className="text-white text-center bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl px-8 py-10 shadow-2xl border border-gray-700 animate-pulse">
+            <h1 className="text-4xl font-extrabold mb-4 text-green-400 drop-shadow-lg">Congratulations!</h1>
+            <p className="text-2xl mb-2">You earned <span className="text-yellow-400">${score}</span></p>
+            <p className="text-lg mb-1">Balance: ${finalBalance}</p>
+            <p className="text-lg mb-6">Energy Left: {finalEnergy}</p>
             <Button
-              className="mt-4 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="mt-4 px-6 py-2 bg-gradient-to-br from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 text-white rounded-xl"
               onClick={resetGame}
             >
               Play Again
