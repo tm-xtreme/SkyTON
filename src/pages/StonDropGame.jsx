@@ -1,26 +1,32 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/gui/button';
 import { useToast } from '@/components/gui/use-toast';
-import { Gem, Zap, UserCircle, DollarSign, ArrowLeft } from 'lucide-react';
+import { Zap, UserCircle, DollarSign, ArrowLeft } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import clsx from 'clsx';
 
 import backgroundImg from '@/assets/background.jpg';
 import stonImg from '@/assets/ston.png';
-import catchSfx from '@/assets/catch.mp3';
-import explosionSfx from '@/assets/explosion.mp3';
+import bombImg from '@/assets/bomb.png';
+import catchSound from '@/assets/catch.mp3';
+import explosionSound from '@/assets/explosion.mp3';
 
-const GAME_DURATION_MS = 2500;
-const SHOTS_PER_GAME = 5;
-const ENERGY_COST_PER_GAME = -20;
+const ENERGY_COST = -20;
+const MAX_LIVES = 5;
+const GEM_SPAWN_INTERVAL = 1800;
+const GEM_FALL_DURATION = 3500;
+const BOMB_CHANCE = 0.2;
+const SCORE_PENALTY = -3;
 
 const randomReward = () => {
   const rewards = [1, 2, 3, 5, 10];
   return rewards[Math.floor(Math.random() * rewards.length)];
 };
+
+const randomX = () => Math.random() * 85 + 5;
 
 function StonDropGame() {
   const navigate = useNavigate();
@@ -28,126 +34,85 @@ function StonDropGame() {
 
   const [userData, setUserData] = useState(null);
   const [score, setScore] = useState(0);
-  const [shotsLeft, setShotsLeft] = useState(SHOTS_PER_GAME);
+  const [energy, setEnergy] = useState(0);
+  const [balance, setBalance] = useState(0);
+  const [gems, setGems] = useState([]);
   const [isGameActive, setIsGameActive] = useState(false);
-  const [gem, setGem] = useState(null);
   const [showExplosion, setShowExplosion] = useState(false);
 
-  const catchAudio = useRef(null);
-  const explosionAudio = useRef(null);
-
-  const getUserData = async (userId) => {
-    try {
-      const ref = doc(db, 'users', userId);
-      const snap = await getDoc(ref);
-      return snap.exists() ? { id: userId, ...snap.data() } : null;
-    } catch (err) {
-      console.error('Error loading user data:', err);
-      return null;
-    }
-  };
-
-  const updateUserEnergy = async (userId, amount) => {
-    try {
-      await updateDoc(doc(db, 'users', userId), { energy: increment(amount) });
-      return true;
-    } catch (err) {
-      console.error('Energy update error:', err);
-      return false;
-    }
-  };
-
-  const updateUserBalance = async (userId, amount) => {
-    try {
-      await updateDoc(doc(db, 'users', userId), { balance: increment(amount) });
-      return true;
-    } catch (err) {
-      console.error('Balance update error:', err);
-      return false;
-    }
-  };
+  const playSound = (src) => new Audio(src).play();
 
   useEffect(() => {
-    const cachedUser = sessionStorage.getItem("cachedUser");
+    const cachedUser = sessionStorage.getItem('cachedUser');
     if (!cachedUser) {
-      toast({
-        title: "User Not Found",
-        description: "Please launch the game via the dashboard.",
-        variant: "destructive",
-      });
-      navigate("/tasks");
+      toast({ title: 'User Not Found', description: 'Please launch the game via the dashboard.', variant: 'destructive' });
+      navigate('/tasks');
       return;
     }
     const user = JSON.parse(cachedUser);
     setUserData(user);
+    setEnergy(user.energy);
+    setBalance(user.balance);
   }, [navigate, toast]);
 
-  const spawnGem = useCallback(() => {
-    if (!isGameActive || shotsLeft <= 0) return;
-
-    const reward = randomReward();
-    const newGem = {
-      id: Date.now(),
-      x: Math.random() * 90 + 5,
-      reward,
-    };
-    setGem(newGem);
-
-    setTimeout(() => {
-      if (shotsLeft > 0) setShotsLeft((prev) => prev - 1);
-      setGem(null);
-    }, GAME_DURATION_MS);
-  }, [isGameActive, shotsLeft]);
-
-  const handleStartGame = async () => {
-    if (!userData) return;
-
-    if (userData.energy < 20) {
-      toast({
-        title: "Not Enough Energy",
-        description: "You need at least 20 energy to play.",
-        variant: "destructive",
-      });
-      return;
+  const updateUserStats = async (field, amount) => {
+    try {
+      await updateDoc(doc(db, 'users', userData.id), { [field]: increment(amount) });
+    } catch (err) {
+      console.error(`${field} update error:`, err);
     }
-
-    const success = await updateUserEnergy(userData.id, ENERGY_COST_PER_GAME);
-    if (!success) return;
-
-    setShotsLeft(SHOTS_PER_GAME);
-    setScore(0);
-    setIsGameActive(true);
-    spawnGem();
   };
 
-  const handleGemClick = async (reward) => {
-    setScore((prev) => prev + reward);
-    setGem(null);
-    setShowExplosion(true);
+  const spawnGem = useCallback(() => {
+    const isBomb = Math.random() < BOMB_CHANCE;
+    const newGem = {
+      id: Date.now(),
+      x: randomX(),
+      reward: isBomb ? null : randomReward(),
+      isBomb,
+    };
+    setGems((prev) => [...prev, newGem]);
 
-    explosionAudio.current?.play();
-    await updateUserBalance(userData.id, reward);
+    setTimeout(() => {
+      setGems((prev) => prev.filter((g) => g.id !== newGem.id));
+    }, GEM_FALL_DURATION);
+  }, []);
 
-    setTimeout(() => setShowExplosion(false), 1000);
-    spawnGem();
-    catchAudio.current?.play();
+  const handleGemClick = async (gem) => {
+    setGems((prev) => prev.filter((g) => g.id !== gem.id));
+    if (gem.isBomb) {
+      navigator.vibrate?.(200);
+      setShowExplosion(true);
+      playSound(explosionSound);
+      setScore((prev) => Math.max(0, prev + SCORE_PENALTY));
+      setTimeout(() => setShowExplosion(false), 1000);
+    } else {
+      playSound(catchSound);
+      setScore((prev) => prev + gem.reward);
+      await updateUserStats('balance', gem.reward);
+    }
+  };
+
+  const startGame = async () => {
+    if (energy < 20) {
+      toast({ title: 'Not Enough Energy', description: 'You need at least 20 energy to play.', variant: 'destructive' });
+      return;
+    }
+    await updateUserStats('energy', ENERGY_COST);
+    setIsGameActive(true);
+    setScore(0);
+    const interval = setInterval(spawnGem, GEM_SPAWN_INTERVAL);
+    setTimeout(() => {
+      clearInterval(interval);
+      setIsGameActive(false);
+    }, 25000);
   };
 
   return (
-    <div
-      className="relative h-screen w-screen overflow-hidden bg-cover bg-center"
-      style={{ backgroundImage: `url(${backgroundImg})` }}
-    >
-      <audio src={catchSfx} ref={catchAudio} />
-      <audio src={explosionSfx} ref={explosionAudio} />
-
+    <div className={clsx("relative h-screen w-screen overflow-hidden", showExplosion && "bg-red-700")}
+      style={{ backgroundImage: `url(${backgroundImg})`, backgroundSize: 'cover' }}>
       <div className="absolute top-3 left-3 z-40">
-        <Button 
-          size="icon"
-          variant="ghost"
-          className="bg-slate-800/80 hover:bg-slate-700/90 rounded-full shadow-md"
-          onClick={() => navigate('/tasks')}
-        >
+        <Button size="icon" variant="ghost" className="bg-slate-800/80 hover:bg-slate-700/90 rounded-full shadow-md" onClick={() => navigate('/tasks')}>
           <ArrowLeft className="h-4 w-4 text-white" />
         </Button>
       </div>
@@ -158,48 +123,41 @@ function StonDropGame() {
         ) : (
           <UserCircle className="w-8 h-8" />
         )}
+        <div>{userData?.firstName}</div>
         <div className="flex items-center gap-2">
           <Zap className="w-4 h-4 text-yellow-400" />
-          {userData?.energy}
+          {energy}
         </div>
         <div className="flex items-center gap-2">
           <DollarSign className="w-4 h-4 text-green-400" />
-          {userData?.balance}
+          {balance}
         </div>
       </div>
 
-      <div className="flex flex-col justify-center items-center h-full z-30 relative">
+      <div className="flex flex-col justify-center items-center h-full">
         {!isGameActive ? (
-          <Button onClick={handleStartGame} className="text-xl px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full">
+          <Button onClick={startGame} className="text-xl px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full">
             Start Game
           </Button>
         ) : (
-          <>
-            <div className="text-white mb-4 text-xl">Score: {score}</div>
-            <div className="text-white mb-6">Shots Left: {shotsLeft}</div>
-          </>
+          <div className="text-white text-xl mb-6">Score: {score}</div>
         )}
       </div>
 
       <AnimatePresence>
-        {gem && (
+        {gems.map((gem) => (
           <motion.img
             key={gem.id}
-            src={stonImg}
+            src={gem.isBomb ? bombImg : stonImg}
             initial={{ y: -100, opacity: 0 }}
             animate={{ y: "90vh", opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: GAME_DURATION_MS / 1000 }}
-            className="absolute cursor-pointer z-40"
-            style={{
-              left: `${gem.x}%`,
-              top: 0,
-              width: `${30 + gem.reward * 5}px`,
-              height: `${30 + gem.reward * 5}px`,
-            }}
-            onClick={() => handleGemClick(gem.reward)}
+            transition={{ duration: GEM_FALL_DURATION / 1000 }}
+            onClick={() => handleGemClick(gem)}
+            className="absolute cursor-pointer drop-shadow-lg"
+            style={{ left: `${gem.x}%`, width: gem.isBomb ? '40px' : '32px' }}
           />
-        )}
+        ))}
       </AnimatePresence>
     </div>
   );
