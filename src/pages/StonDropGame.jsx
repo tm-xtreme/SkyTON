@@ -13,10 +13,11 @@ import bombImg from '@/assets/bomb.png';
 import catchSfx from '@/assets/catch.mp3';
 import explosionSfx from '@/assets/explosion.mp3';
 
-// ...imports remain the same
-
-const GAME_DURATION = 30;
+const GAME_DURATION = 30; // seconds
 const ENERGY_COST = 20;
+
+const getRandomPosition = () => `${Math.random() * 80}%`;
+const getRandomReward = () => Math.floor(Math.random() * 5) + 1;
 
 export default function StonDropGame() {
   const [userData, setUserData] = useState(null);
@@ -24,90 +25,127 @@ export default function StonDropGame() {
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
   const [isGameOver, setIsGameOver] = useState(false);
-  const [gameStarted, setGameStarted] = useState(false); // NEW
   const [redFlash, setRedFlash] = useState(false);
-
+  const [gameStarted, setGameStarted] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const userId = sessionStorage.getItem("gameUserId");
-
   const containerRef = useRef();
+
   const catchAudio = useRef(new Audio(catchSfx));
   const explosionAudio = useRef(new Audio(explosionSfx));
 
-  // Load user and deduct energy
+  const userId = sessionStorage.getItem("gameUserId");
+
   useEffect(() => {
     if (!userId) return;
 
     const fetchUser = async () => {
-      const docRef = doc(db, 'users', userId);
-      const snap = await getDoc(docRef);
-      if (!snap.exists()) return;
-      const data = snap.data();
-
-      if (data.energy < ENERGY_COST) {
-        toast({ title: 'Not enough energy.' });
+      try {
+        const docRef = doc(db, 'users', userId);
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.energy < ENERGY_COST) {
+            toast({ title: 'Not enough energy to play.' });
+            navigate(-1);
+            return;
+          }
+          setUserData({ ...data, id: userId });
+        }
+      } catch (error) {
+        toast({ title: 'Failed to load user data.' });
         navigate(-1);
-        return;
       }
-
-      await updateDoc(docRef, { energy: increment(-ENERGY_COST) });
-      setUserData({ ...data, id: userId });
     };
 
     fetchUser();
   }, [userId, navigate, toast]);
 
-  // Game timer
+  useEffect(() => {
+    if (!droppables.length) return;
+    const timers = droppables.map(drop =>
+      setTimeout(() => {
+        setDroppables(prev => prev.filter(d => d.id !== drop.id));
+      }, 3000)
+    );
+    return () => timers.forEach(clearTimeout);
+  }, [droppables]);
+
   useEffect(() => {
     if (!gameStarted || !userData) return;
 
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          setIsGameOver(true);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    const startGame = async () => {
+      const docRef = doc(db, 'users', userId);
+      await updateDoc(docRef, { energy: increment(-ENERGY_COST) });
 
-    const dropInterval = setInterval(() => {
-      const id = crypto.randomUUID();
-      const isBomb = Math.random() < 0.2;
-      const reward = getRandomReward();
-      setDroppables(prev => [
-        ...prev,
-        { id, left: getRandomPosition(), reward, isBomb }
-      ]);
-    }, 400);
+      const gameTimer = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            clearInterval(gameTimer);
+            setIsGameOver(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
 
-    return () => {
-      clearInterval(timer);
-      clearInterval(dropInterval);
+      const dropInterval = setInterval(() => {
+        const isBomb = Math.random() < 0.2;
+        const reward = getRandomReward();
+        const id = crypto.randomUUID();
+
+        setDroppables(prev => [
+          ...prev,
+          {
+            id,
+            left: getRandomPosition(),
+            reward,
+            isBomb,
+          },
+        ]);
+      }, 400);
+
+      return () => {
+        clearInterval(gameTimer);
+        clearInterval(dropInterval);
+      };
     };
+
+    const stop = startGame();
+    return () => stop && stop();
   }, [gameStarted, userData]);
 
-  const startGame = () => {
-    setGameStarted(true);
-    setTimeLeft(GAME_DURATION);
-    setScore(0);
-    setIsGameOver(false);
-    setDroppables([]);
-  };
+  const handleDropClick = useCallback((drop) => {
+    if (drop.isBomb) {
+      if (navigator.vibrate) navigator.vibrate(300);
+      explosionAudio.current.play();
+      setRedFlash(true);
+      setTimeout(() => setRedFlash(false), 1000);
+      setScore(prev => Math.max(0, prev - 20));
+    } else {
+      catchAudio.current.play();
+      setScore(prev => prev + drop.reward);
+    }
+    setDroppables(prev => prev.filter(d => d.id !== drop.id));
+  }, []);
 
-  // Play again logic
-  const handlePlayAgain = () => {
-    startGame(); // Just re-run the game
-  };
-
-  // Final score save
   useEffect(() => {
     if (!isGameOver || !userId) return;
-    updateDoc(doc(db, 'users', userId), { balance: increment(score) });
-    toast({ title: `Game Over! You earned $${score}` });
+    const finalizeGame = async () => {
+      const docRef = doc(db, 'users', userId);
+      await updateDoc(docRef, { balance: increment(score) });
+      toast({ title: `Game Over! You earned $${score}` });
+    };
+    finalizeGame();
   }, [isGameOver, userId, score, toast]);
+
+  const handleRestart = () => {
+    setScore(0);
+    setTimeLeft(GAME_DURATION);
+    setIsGameOver(false);
+    setDroppables([]);
+    setGameStarted(true);
+  };
 
   return (
     <div
@@ -119,19 +157,44 @@ export default function StonDropGame() {
         backgroundPosition: 'center',
       }}
     >
-
-      {/* Top-left info */}
-      {/* ... same as before ... */}
-
-      {/* Small Timer/Score top-right */}
-      <div className="absolute top-2 right-3 text-white text-sm z-20 bg-black bg-opacity-50 rounded-md px-3 py-1 shadow select-none">
-        <p>Time: 00:{timeLeft.toString().padStart(2, '0')}</p>
-        <p>Score: {score}</p>
+      {/* User info top-left */}
+      <div className="absolute top-3 left-3 flex items-center gap-3 text-white text-base z-20 bg-black bg-opacity-50 rounded-lg px-4 py-2 shadow-lg select-none">
+        <ArrowLeft 
+          className="cursor-pointer w-6 h-6 hover:text-gray-300 transition-colors" 
+          onClick={() => navigate(-1)} 
+          title="Back"
+        />
+        {userData?.profilePicUrl ? (
+          <img
+            src={userData.profilePicUrl}
+            alt="Profile"
+            className="w-8 h-8 rounded-full object-cover border border-white"
+          />
+        ) : (
+          <div className="w-8 h-8 rounded-full bg-gray-400" />
+        )}
+        <span className="flex items-center gap-1">
+          <Zap className="w-5 h-5 text-yellow-400" />
+          {userData?.energy ?? 0}
+        </span>
+        <span className="flex items-center gap-1">
+          <DollarSign className="w-5 h-5 text-green-400" />
+          {userData?.balance ?? 0}
+        </span>
       </div>
 
-      {/* Droppables */}
+      {/* Timer top-right */}
+      {gameStarted && (
+        <div className="absolute top-3 right-3 text-white text-sm z-20 bg-black bg-opacity-50 rounded-lg px-3 py-1 shadow-lg select-none">
+          <p>
+            00:{timeLeft.toString().padStart(2, '0')} | Score: {score}
+          </p>
+        </div>
+      )}
+
+      {/* Falling items */}
       <AnimatePresence>
-        {gameStarted && droppables.map(drop => (
+        {droppables.map(drop => (
           <motion.img
             key={drop.id}
             src={drop.isBomb ? bombImg : stonImg}
@@ -141,6 +204,7 @@ export default function StonDropGame() {
               left: drop.left,
               width: drop.isBomb ? 40 : 24 + drop.reward * 12,
               zIndex: 15,
+              userSelect: 'none',
             }}
             initial={{ top: '-12%' }}
             animate={{ top: '100%' }}
@@ -152,32 +216,32 @@ export default function StonDropGame() {
         ))}
       </AnimatePresence>
 
-      {/* Red flash on bomb */}
+      {/* Red flash effect */}
       {redFlash && (
-        <div className="absolute inset-0 bg-red-600 opacity-70 z-30 transition-opacity duration-1000 pointer-events-none" />
+        <div className="absolute inset-0 bg-red-600 opacity-70 z-30 pointer-events-none transition-opacity duration-1000" />
       )}
 
-      {/* Start Button Overlay */}
-      {!gameStarted && !isGameOver && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 z-50">
+      {/* Start screen */}
+      {!gameStarted && !isGameOver && userData && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-80 z-40">
           <Button
-            className="text-white text-xl bg-green-600 px-6 py-3 rounded-lg hover:bg-green-700"
-            onClick={startGame}
+            className="text-xl px-8 py-4 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow-lg"
+            onClick={() => setGameStarted(true)}
           >
             Start Game
           </Button>
         </div>
       )}
 
-      {/* Game Over Popup */}
+      {/* Game over modal */}
       {isGameOver && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-90 z-50">
+        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-90 z-40">
           <div className="text-white text-center bg-gray-900 bg-opacity-90 rounded-xl p-10 shadow-xl max-w-xs mx-4">
             <h1 className="text-3xl font-bold mb-4">Congratulations!</h1>
             <p className="text-xl mb-6">You earned ${score}</p>
             <Button
-              className="mt-4 px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg"
-              onClick={handlePlayAgain}
+              className="mt-4 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+              onClick={handleRestart}
             >
               Play Again
             </Button>
