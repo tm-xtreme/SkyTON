@@ -33,17 +33,6 @@ export default function StonDropGame({ userId }) {
   const catchAudio = useRef(new Audio(catchSfx));
   const explosionAudio = useRef(new Audio(explosionSfx));
 
-  // Remove droppables after 3s (animation duration)
-  useEffect(() => {
-    if (!droppables.length) return;
-    const timers = droppables.map(drop =>
-      setTimeout(() => {
-        setDroppables(prev => prev.filter(d => d.id !== drop.id));
-      }, 3000)
-    );
-    return () => timers.forEach(clearTimeout);
-  }, [droppables]);
-
   useEffect(() => {
     if (!userId) return;
     const fetchUser = async () => {
@@ -62,6 +51,17 @@ export default function StonDropGame({ userId }) {
     };
     fetchUser();
   }, [userId, navigate, toast]);
+
+  // Remove droppables after 3s (animation duration)
+  useEffect(() => {
+    if (!droppables.length) return;
+    const timers = droppables.map(drop =>
+      setTimeout(() => {
+        setDroppables(prev => prev.filter(d => d.id !== drop.id));
+      }, 3000)
+    );
+    return () => timers.forEach(clearTimeout);
+  }, [droppables]);
 
   useEffect(() => {
     if (!userData) return;
@@ -129,17 +129,31 @@ export default function StonDropGame({ userId }) {
     <div
       ref={containerRef}
       className="relative w-full h-screen overflow-hidden"
-      style={{ backgroundImage: `url(${backgroundImg})`, backgroundSize: 'cover' }}
+      style={{ backgroundImage: `url(${backgroundImg})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
     >
-      <div className="absolute top-2 left-2 flex items-center gap-2 text-white text-sm z-10">
-        <ArrowLeft onClick={() => navigate(-1)} className="cursor-pointer" />
-        <UserCircle />
-        <span className="flex items-center gap-1"><Zap className="w-4 h-4" />{userData?.energy}</span>
-        <span className="flex items-center gap-1"><DollarSign className="w-4 h-4" />{userData?.balance}</span>
+      {/* User info top-left with background */}
+      <div className="absolute top-3 left-3 flex items-center gap-3 text-white text-base z-20 bg-black bg-opacity-50 rounded-lg px-4 py-2 shadow-lg select-none">
+        <ArrowLeft 
+          className="cursor-pointer w-6 h-6 hover:text-gray-300 transition-colors" 
+          onClick={() => navigate(-1)} 
+          title="Back"
+        />
+        <UserCircle className="w-6 h-6" />
+        <span className="flex items-center gap-1">
+          <Zap className="w-5 h-5 text-yellow-400" />
+          {userData?.energy ?? 0}
+        </span>
+        <span className="flex items-center gap-1">
+          <DollarSign className="w-5 h-5 text-green-400" />
+          {userData?.balance ?? 0}
+        </span>
       </div>
 
-      <div className="absolute top-2 right-2 text-white text-sm z-10">
-        <p>00:{timeLeft.toString().padStart(2, '0')}, Score: {score}</p>
+      {/* Timer and Score top-right with background */}
+      <div className="absolute top-3 right-3 text-white text-lg z-20 bg-black bg-opacity-50 rounded-lg px-4 py-2 shadow-lg select-none">
+        <p>
+          00:{timeLeft.toString().padStart(2, '0')}, Score: {score}
+        </p>
       </div>
 
       <AnimatePresence>
@@ -152,27 +166,36 @@ export default function StonDropGame({ userId }) {
             style={{
               left: drop.left,
               width: drop.isBomb ? 40 : 24 + drop.reward * 12,
-              zIndex: 5,
+              zIndex: 15,
+              userSelect: 'none',
             }}
-            initial={{ top: '-10%' }}
+            initial={{ top: '-12%' }}
             animate={{ top: '100%' }}
             exit={{ opacity: 0 }}
             transition={{ duration: 3, ease: 'linear' }}
             alt={drop.isBomb ? "Bomb" : "STON"}
+            draggable={false}
           />
         ))}
       </AnimatePresence>
 
+      {/* Red flash on bomb click */}
       {redFlash && (
-        <div className="absolute inset-0 bg-red-600 opacity-70 z-20 transition-opacity duration-1000 pointer-events-none" />
+        <div className="absolute inset-0 bg-red-600 opacity-70 z-30 pointer-events-none transition-opacity duration-1000" />
       )}
 
+      {/* Game over modal */}
       {isGameOver && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-80 z-30">
-          <div className="text-white text-center">
-            <h1 className="text-2xl font-bold">Congratulations!</h1>
-            <p className="mt-2">You earned ${score}</p>
-            <Button className="mt-4" onClick={() => navigate(-1)}>Back</Button>
+        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-90 z-40">
+          <div className="text-white text-center bg-gray-900 bg-opacity-90 rounded-xl p-10 shadow-xl max-w-xs mx-4">
+            <h1 className="text-3xl font-bold mb-4">Congratulations!</h1>
+            <p className="text-xl mb-6">You earned ${score}</p>
+            <Button 
+              className="mt-4 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+              onClick={() => navigate(-1)}
+            >
+              Back
+            </Button>
           </div>
         </div>
       )}
