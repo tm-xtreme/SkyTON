@@ -164,5 +164,4 @@ export default function StonDropGame({ userId }) {
     </div>
   );
 }
-
-export default StonDropGame;    
+    
