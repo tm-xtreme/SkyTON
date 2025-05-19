@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/gui/button';
@@ -7,6 +7,11 @@ import { Gem, Zap, UserCircle, DollarSign, ArrowLeft } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import clsx from 'clsx';
+
+import backgroundImg from '@/assets/background.jpg';
+import stonImg from '@/assets/ston.png';
+import catchSfx from '@/assets/catch.mp3';
+import explosionSfx from '@/assets/explosion.mp3';
 
 const GAME_DURATION_MS = 2500;
 const SHOTS_PER_GAME = 5;
@@ -27,6 +32,9 @@ function StonDropGame() {
   const [isGameActive, setIsGameActive] = useState(false);
   const [gem, setGem] = useState(null);
   const [showExplosion, setShowExplosion] = useState(false);
+
+  const catchAudio = useRef(null);
+  const explosionAudio = useRef(null);
 
   const getUserData = async (userId) => {
     try {
@@ -116,14 +124,23 @@ function StonDropGame() {
     setScore((prev) => prev + reward);
     setGem(null);
     setShowExplosion(true);
+
+    explosionAudio.current?.play();
     await updateUserBalance(userData.id, reward);
 
     setTimeout(() => setShowExplosion(false), 1000);
     spawnGem();
+    catchAudio.current?.play();
   };
 
   return (
-    <div className={clsx("ston-game-bg relative h-screen w-screen overflow-hidden", showExplosion && "bg-red-700 transition-all duration-1000")}>
+    <div
+      className="relative h-screen w-screen overflow-hidden bg-cover bg-center"
+      style={{ backgroundImage: `url(${backgroundImg})` }}
+    >
+      <audio src={catchSfx} ref={catchAudio} />
+      <audio src={explosionSfx} ref={explosionAudio} />
+
       <div className="absolute top-3 left-3 z-40">
         <Button 
           size="icon"
@@ -151,7 +168,7 @@ function StonDropGame() {
         </div>
       </div>
 
-      <div className="flex flex-col justify-center items-center h-full">
+      <div className="flex flex-col justify-center items-center h-full z-30 relative">
         {!isGameActive ? (
           <Button onClick={handleStartGame} className="text-xl px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full">
             Start Game
@@ -166,30 +183,22 @@ function StonDropGame() {
 
       <AnimatePresence>
         {gem && (
-          <motion.div
+          <motion.img
             key={gem.id}
+            src={stonImg}
             initial={{ y: -100, opacity: 0 }}
             animate={{ y: "90vh", opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: GAME_DURATION_MS / 1000 }}
-            className="absolute"
-            style={{ left: `${gem.x}%`, top: 0 }}
-          >
-            <motion.div
-              onClick={() => handleGemClick(gem.reward)}
-              className={clsx(
-                "cursor-pointer rounded-full bg-amber-500 text-white flex items-center justify-center shadow-lg border-2 border-yellow-300",
-              )}
-              style={{
-                width: `${30 + gem.reward * 5}px`,
-                height: `${30 + gem.reward * 5}px`,
-                fontSize: `${12 + gem.reward * 2}px`,
-              }}
-              whileTap={{ scale: 0.8 }}
-            >
-              +{gem.reward}
-            </motion.div>
-          </motion.div>
+            className="absolute cursor-pointer z-40"
+            style={{
+              left: `${gem.x}%`,
+              top: 0,
+              width: `${30 + gem.reward * 5}px`,
+              height: `${30 + gem.reward * 5}px`,
+            }}
+            onClick={() => handleGemClick(gem.reward)}
+          />
         )}
       </AnimatePresence>
     </div>
