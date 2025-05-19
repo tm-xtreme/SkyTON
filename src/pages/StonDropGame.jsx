@@ -1,163 +1,168 @@
-import React, { useEffect, useRef, useState } from "react";
-import { getFirestore, doc, getDoc, updateDoc } from "firebase/firestore";
-import { app } from "@/firebase";
-import stonImg from "@/assets/ston.png";
-import bombImg from "@/assets/bomb.png";
-import backgroundImg from "@/assets/background.jpg";
-import catchSound from "@/assets/catch.mp3";
-import explosionSound from "@/assets/explosion.mp3";
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Button } from '@/components/gui/button';
+import { useToast } from '@/components/gui/use-toast';
+import { Gem, Zap, UserCircle, DollarSign, ArrowLeft } from 'lucide-react';
+import { db } from '@/lib/firebase';
+import { doc, getDoc, updateDoc, increment } from 'firebase/firestore';
+import clsx from 'clsx';
 
-const canvasWidth = 360;
-const canvasHeight = 600;
+import backgroundImg from '@/assets/background.jpg';
+import stonImg from '@/assets/ston.png';
+import bombImg from '@/assets/bomb.png';
+import catchSfx from '@/assets/catch.mp3';
+import explosionSfx from '@/assets/explosion.mp3';
 
-const StonDropGame = () => {
-  const canvasRef = useRef(null);
+const GAME_DURATION = 30; // seconds
+const ENERGY_COST = 20;
+
+const getRandomPosition = () => Math.random() * 80 + '%';
+const getRandomReward = () => Math.floor(Math.random() * 5) + 1;
+
+export default function StonDropGame({ userId }) {
   const [userData, setUserData] = useState(null);
+  const [droppables, setDroppables] = useState([]);
   const [score, setScore] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(30);
+  const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
   const [isGameOver, setIsGameOver] = useState(false);
-  const [flashRed, setFlashRed] = useState(false);
+  const [redFlash, setRedFlash] = useState(false);
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const containerRef = useRef();
 
-  const catchAudio = new Audio(catchSound);
-  const explosionAudio = new Audio(explosionSound);
-
-  const userId = sessionStorage.getItem("gameUserId");
-
-  const fetchUserData = async () => {
-    const db = getFirestore(app);
-    const docRef = doc(db, "users", userId);
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) setUserData(docSnap.data());
-  };
+  const catchAudio = useRef(new Audio(catchSfx));
+  const explosionAudio = useRef(new Audio(explosionSfx));
 
   useEffect(() => {
-    fetchUserData();
-  }, []);
-
-  useEffect(() => {
-    if (!canvasRef.current || !userData) return;
-    const ctx = canvasRef.current.getContext("2d");
-    let animationId;
-    const objects = [];
-
-    const stonImage = new Image();
-    stonImage.src = stonImg.src;
-    const bombImage = new Image();
-    bombImage.src = bombImg.src;
-    const bgImage = new Image();
-    bgImage.src = backgroundImg.src;
-
-    const spawnObject = () => {
-      const isBomb = Math.random() < 0.2;
-      const reward = isBomb ? 0 : Math.floor(Math.random() * 5) + 1;
-      const size = isBomb ? 30 : 20 + reward * 10;
-      objects.push({
-        x: Math.random() * (canvasWidth - size),
-        y: -size,
-        size,
-        speed: 2 + Math.random() * 3,
-        isBomb,
-        reward,
-      });
-    };
-
-    const handleClick = (e) => {
-      const rect = canvasRef.current.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-
-      for (let i = 0; i < objects.length; i++) {
-        const obj = objects[i];
-        if (
-          x > obj.x &&
-          x < obj.x + obj.size &&
-          y > obj.y &&
-          y < obj.y + obj.size
-        ) {
-          if (obj.isBomb) {
-            explosionAudio.play();
-            setFlashRed(true);
-            navigator.vibrate?.(300);
-            setScore((prev) => Math.max(0, prev - 20));
-            setTimeout(() => setFlashRed(false), 150);
-          } else {
-            catchAudio.play();
-            setScore((prev) => prev + obj.reward);
-          }
-          objects.splice(i, 1);
-          break;
+    if (!userId) return;
+    const fetchUser = async () => {
+      const docRef = doc(db, 'users', userId);
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.energy < ENERGY_COST) {
+          toast({ title: 'Not enough energy to play.' });
+          navigate(-1);
+          return;
         }
+        await updateDoc(docRef, { energy: increment(-ENERGY_COST) });
+        setUserData(data);
       }
     };
+    fetchUser();
+  }, [userId]);
 
-    const render = () => {
-      ctx.drawImage(bgImage, 0, 0, canvasWidth, canvasHeight);
-      for (const obj of objects) {
-        const img = obj.isBomb ? bombImage : stonImage;
-        ctx.drawImage(img, obj.x, obj.y, obj.size, obj.size);
-        obj.y += obj.speed;
-      }
-      animationId = requestAnimationFrame(render);
-    };
+  useEffect(() => {
+    if (!userData) return;
 
-    let spawnInterval = setInterval(spawnObject, 600);
-    render();
-    canvasRef.current.addEventListener("click", handleClick);
+    const gameTimer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(gameTimer);
+          setIsGameOver(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    const dropInterval = setInterval(() => {
+      const isBomb = Math.random() < 0.2;
+      const reward = getRandomReward();
+      const id = crypto.randomUUID();
+
+      setDroppables(prev => [
+        ...prev,
+        {
+          id,
+          left: getRandomPosition(),
+          reward,
+          isBomb,
+        },
+      ]);
+    }, 400);
 
     return () => {
-      clearInterval(spawnInterval);
-      cancelAnimationFrame(animationId);
-      canvasRef.current?.removeEventListener("click", handleClick);
+      clearInterval(gameTimer);
+      clearInterval(dropInterval);
     };
   }, [userData]);
 
+  const handleDropClick = useCallback(
+    (drop) => {
+      if (drop.isBomb) {
+        if (navigator.vibrate) navigator.vibrate(300);
+        explosionAudio.current.play();
+        setRedFlash(true);
+        setTimeout(() => setRedFlash(false), 1000);
+        setScore(prev => Math.max(0, prev - 20));
+      } else {
+        catchAudio.current.play();
+        setScore(prev => prev + drop.reward);
+      }
+      setDroppables(prev => prev.filter(d => d.id !== drop.id));
+    }, []
+  );
+
   useEffect(() => {
-    if (timeLeft <= 0 && !isGameOver) {
-      endGame();
-      return;
-    }
-    const timer = setTimeout(() => setTimeLeft((t) => t - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [timeLeft]);
-
-  const endGame = async () => {
-    setIsGameOver(true);
-    const db = getFirestore(app);
-    const userRef = doc(db, "users", userId);
-    const newBalance = (userData?.balance || 0) + score;
-    await updateDoc(userRef, { balance: newBalance });
-    alert(`Congratulations! You earned $${score}. New Balance: $${newBalance}`);
-    window.location.href = "/tasks";
-  };
-
-  if (!userData) return <div>Loading...</div>;
+    if (!isGameOver || !userId) return;
+    const finalizeGame = async () => {
+      const docRef = doc(db, 'users', userId);
+      await updateDoc(docRef, { balance: increment(score) });
+      toast({ title: `Game Over! You earned $${score}` });
+    };
+    finalizeGame();
+  }, [isGameOver]);
 
   return (
-    <div className="w-full h-screen flex flex-col bg-black text-white relative overflow-hidden">
-      {flashRed && <div className="absolute w-full h-full bg-red-500 opacity-50 z-50" />}
+    <div
+      ref={containerRef}
+      className="relative w-full h-screen overflow-hidden"
+      style={{ backgroundImage: `url(${backgroundImg})`, backgroundSize: 'cover' }}
+    >
+      <div className="absolute top-2 left-2 flex items-center gap-2 text-white text-sm z-10">
+        <ArrowLeft onClick={() => navigate(-1)} />
+        <UserCircle />
+        <span className="flex items-center gap-1"><Zap className="w-4 h-4" />{userData?.energy}</span>
+        <span className="flex items-center gap-1"><DollarSign className="w-4 h-4" />{userData?.balance}</span>
+      </div>
 
-      <div className="flex items-center justify-between px-3 py-2 text-sm z-10 bg-[#111]">
-        <button onClick={() => (window.location.href = "/tasks")}>{"<-"}</button>
-        <img src={userData.profilePicUrl} className="w-8 h-8 rounded-full" />
-        <div className="text-right">
-          <div>⚡ {userData.energy}</div>
-          <div>${userData.balance}</div>
+      <div className="absolute bottom-2 right-2 text-white text-sm z-10">
+        <p>00:{timeLeft.toString().padStart(2, '0')}, Score: {score}</p>
+      </div>
+
+      <AnimatePresence>
+        {droppables.map((drop) => (
+          <motion.img
+            key={drop.id}
+            src={drop.isBomb ? bombImg : stonImg}
+            onClick={() => handleDropClick(drop)}
+            className="absolute cursor-pointer"
+            style={{ left: drop.left, width: `${drop.reward * 12}px` }}
+            initial={{ top: '-10%' }}
+            animate={{ top: '100%' }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 3, ease: 'linear' }}
+          />
+        ))}
+      </AnimatePresence>
+
+      {redFlash && (
+        <div className="absolute inset-0 bg-red-600 opacity-70 z-20 transition-opacity duration-1000" />
+      )}
+
+      {isGameOver && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-80 z-30">
+          <div className="text-white text-center">
+            <h1 className="text-2xl font-bold">Congratulations!</h1>
+            <p className="mt-2">You earned ${score}</p>
+            <Button className="mt-4" onClick={() => navigate(-1)}>Back</Button>
+          </div>
         </div>
-      </div>
-
-      <canvas
-        ref={canvasRef}
-        width={canvasWidth}
-        height={canvasHeight}
-        className="mx-auto my-2 border border-gray-700 bg-[#111]"
-      />
-
-      <div className="text-center py-2 text-sm bg-[#111]">
-        <div>{String(timeLeft).padStart(2, "0")}:00 | Score: ${score}</div>
-      </div>
+      )}
     </div>
   );
-};
+}
 
-export default StonDropGame;
-    
+export default StonDropGame;    
