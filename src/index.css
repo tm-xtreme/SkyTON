@@ -198,4 +198,4 @@
 /* ===================== EXTRAS ===================== */
 .glass-card {
   @apply bg-card/70 backdrop-blur-lg border border-border/20 shadow-lg;
-}
+  }
