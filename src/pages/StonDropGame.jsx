@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/gui/button';
 import { useToast } from '@/components/gui/use-toast';
-import { Gem, Zap, UserCircle, DollarSign, ArrowLeft } from 'lucide-react';
+import { Zap, DollarSign, ArrowLeft } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc, increment } from 'firebase/firestore';
 
@@ -19,7 +19,7 @@ const ENERGY_COST = 20;
 const getRandomPosition = () => `${Math.random() * 80}%`;
 const getRandomReward = () => Math.floor(Math.random() * 5) + 1;
 
-export default function StonDropGame({ userId }) {
+export default function StonDropGame() {
   const [userData, setUserData] = useState(null);
   const [droppables, setDroppables] = useState([]);
   const [score, setScore] = useState(0);
@@ -33,26 +33,35 @@ export default function StonDropGame({ userId }) {
   const catchAudio = useRef(new Audio(catchSfx));
   const explosionAudio = useRef(new Audio(explosionSfx));
 
+  const userId = sessionStorage.getItem("gameUserId");
+
   useEffect(() => {
     if (!userId) return;
+
     const fetchUser = async () => {
-      const docRef = doc(db, 'users', userId);
-      const snap = await getDoc(docRef);
-      if (snap.exists()) {
-        const data = snap.data();
-        if (data.energy < ENERGY_COST) {
-          toast({ title: 'Not enough energy to play.' });
-          navigate(-1);
-          return;
+      try {
+        const docRef = doc(db, 'users', userId);
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.energy < ENERGY_COST) {
+            toast({ title: 'Not enough energy to play.' });
+            navigate(-1);
+            return;
+          }
+          await updateDoc(docRef, { energy: increment(-ENERGY_COST) });
+          setUserData({ ...data, id: userId });
         }
-        await updateDoc(docRef, { energy: increment(-ENERGY_COST) });
-        setUserData(data);
+      } catch (error) {
+        toast({ title: 'Failed to load user data.' });
+        navigate(-1);
       }
     };
+
     fetchUser();
   }, [userId, navigate, toast]);
 
-  // Remove droppables after 3s (animation duration)
+  // Cleanup falling items
   useEffect(() => {
     if (!droppables.length) return;
     const timers = droppables.map(drop =>
@@ -99,21 +108,19 @@ export default function StonDropGame({ userId }) {
     };
   }, [userData]);
 
-  const handleDropClick = useCallback(
-    (drop) => {
-      if (drop.isBomb) {
-        if (navigator.vibrate) navigator.vibrate(300);
-        explosionAudio.current.play();
-        setRedFlash(true);
-        setTimeout(() => setRedFlash(false), 1000);
-        setScore(prev => Math.max(0, prev - 20));
-      } else {
-        catchAudio.current.play();
-        setScore(prev => prev + drop.reward);
-      }
-      setDroppables(prev => prev.filter(d => d.id !== drop.id));
-    }, []
-  );
+  const handleDropClick = useCallback((drop) => {
+    if (drop.isBomb) {
+      if (navigator.vibrate) navigator.vibrate(300);
+      explosionAudio.current.play();
+      setRedFlash(true);
+      setTimeout(() => setRedFlash(false), 1000);
+      setScore(prev => Math.max(0, prev - 20));
+    } else {
+      catchAudio.current.play();
+      setScore(prev => prev + drop.reward);
+    }
+    setDroppables(prev => prev.filter(d => d.id !== drop.id));
+  }, []);
 
   useEffect(() => {
     if (!isGameOver || !userId) return;
@@ -129,16 +136,28 @@ export default function StonDropGame({ userId }) {
     <div
       ref={containerRef}
       className="relative w-full h-screen overflow-hidden"
-      style={{ backgroundImage: `url(${backgroundImg})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+      style={{
+        backgroundImage: `url(${backgroundImg})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
     >
-      {/* User info top-left with background */}
+      {/* User info top-left */}
       <div className="absolute top-3 left-3 flex items-center gap-3 text-white text-base z-20 bg-black bg-opacity-50 rounded-lg px-4 py-2 shadow-lg select-none">
         <ArrowLeft 
           className="cursor-pointer w-6 h-6 hover:text-gray-300 transition-colors" 
           onClick={() => navigate(-1)} 
           title="Back"
         />
-        <UserCircle className="w-6 h-6" />
+        {userData?.profilePicUrl ? (
+          <img
+            src={userData.profilePicUrl}
+            alt="Profile"
+            className="w-8 h-8 rounded-full object-cover border border-white"
+          />
+        ) : (
+          <div className="w-8 h-8 rounded-full bg-gray-400" />
+        )}
         <span className="flex items-center gap-1">
           <Zap className="w-5 h-5 text-yellow-400" />
           {userData?.energy ?? 0}
@@ -149,15 +168,16 @@ export default function StonDropGame({ userId }) {
         </span>
       </div>
 
-      {/* Timer and Score top-right with background */}
+      {/* Timer top-right */}
       <div className="absolute top-3 right-3 text-white text-lg z-20 bg-black bg-opacity-50 rounded-lg px-4 py-2 shadow-lg select-none">
         <p>
           00:{timeLeft.toString().padStart(2, '0')}, Score: {score}
         </p>
       </div>
 
+      {/* Falling items */}
       <AnimatePresence>
-        {droppables.map((drop) => (
+        {droppables.map(drop => (
           <motion.img
             key={drop.id}
             src={drop.isBomb ? bombImg : stonImg}
@@ -179,7 +199,7 @@ export default function StonDropGame({ userId }) {
         ))}
       </AnimatePresence>
 
-      {/* Red flash on bomb click */}
+      {/* Red flash effect */}
       {redFlash && (
         <div className="absolute inset-0 bg-red-600 opacity-70 z-30 pointer-events-none transition-opacity duration-1000" />
       )}
@@ -190,7 +210,7 @@ export default function StonDropGame({ userId }) {
           <div className="text-white text-center bg-gray-900 bg-opacity-90 rounded-xl p-10 shadow-xl max-w-xs mx-4">
             <h1 className="text-3xl font-bold mb-4">Congratulations!</h1>
             <p className="text-xl mb-6">You earned ${score}</p>
-            <Button 
+            <Button
               className="mt-4 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
               onClick={() => navigate(-1)}
             >
