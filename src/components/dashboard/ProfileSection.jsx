@@ -1,23 +1,18 @@
-import React, { useState, useContext } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Wallet, Link as LinkIcon, Gift, Zap, X } from 'lucide-react';
+import { Wallet, Link as LinkIcon, Gift, Zap, Users, CheckCircle, X } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { connectWallet, disconnectWallet, getCurrentUser } from '@/data';
 import { UserContext } from '@/App';
-import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription } from '@/components/ui/alert-dialog';
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 10 },
-  visible: { opacity: 1, y: 0 }
-};
+import AlertDialog from '@/components/ui/alert-dialog';
 
 const ProfileSection = ({ user, refreshUserData }) => {
   const [walletInput, setWalletInput] = useState('');
-  const [showWalletDialog, setShowWalletDialog] = useState(false);
+  const [showDialog, setShowDialog] = useState(false);
   const { toast } = useToast();
 
   const handleConnectWallet = async () => {
@@ -29,24 +24,27 @@ const ProfileSection = ({ user, refreshUserData }) => {
           const updatedUser = await getCurrentUser(user.id);
           if (updatedUser) refreshUserData(updatedUser);
           setWalletInput('');
-          setShowWalletDialog(false);
+          setShowDialog(false);
           toast({
             title: "Wallet Connected",
-            description: `Wallet ${walletInput.substring(0, 6)}...${walletInput.substring(walletInput.length - 4)} added.`
+            description: `Wallet ${walletInput.substring(0, 6)}...${walletInput.substring(walletInput.length - 4)} added.`,
+            variant: "success",
           });
         } else {
-          toast({ title: "Error", description: "Failed to connect wallet." });
+          toast({ title: "Error", description: "Failed to connect wallet.", variant: "destructive" });
         }
       } else {
         toast({
           title: "Invalid Wallet Address",
-          description: "Please enter a valid TON wallet address (should be 48 chars starting EQ/UQ)."
+          description: "Please enter a valid TON wallet address (should be 48 chars starting EQ/UQ).",
+          variant: "destructive",
         });
       }
     } else {
       toast({
         title: "Wallet Address Required",
-        description: "Please enter your TON wallet address."
+        description: "Please enter your TON wallet address.",
+        variant: "destructive",
       });
     }
   };
@@ -57,9 +55,9 @@ const ProfileSection = ({ user, refreshUserData }) => {
     if (success) {
       const updatedUser = await getCurrentUser(user.id);
       if (updatedUser) refreshUserData(updatedUser);
-      toast({ title: "Wallet Disconnected" });
+      toast({ title: "Wallet Disconnected", variant: "default" });
     } else {
-      toast({ title: "Error", description: "Failed to disconnect wallet." });
+      toast({ title: "Error", description: "Failed to disconnect wallet.", variant: "destructive" });
     }
   };
 
@@ -68,89 +66,82 @@ const ProfileSection = ({ user, refreshUserData }) => {
   const fallbackAvatar = displayName?.substring(0, 2).toUpperCase() || 'U';
 
   return (
-    <>
-      <motion.div variants={itemVariants} className="w-full min-h-[calc(100vh-80px)] bg-gradient-to-br from-gray-900 to-black text-white px-4 py-6 flex flex-col items-center">
-        <Card className="w-full max-w-md bg-transparent border-none shadow-none">
-          <CardHeader className="items-center text-center">
-            <Avatar className="h-20 w-20 border-2 border-sky-400 shadow-md">
-              <AvatarImage src={user.profilePicUrl || `https://avatar.vercel.sh/${user.username || user.id}.png?size=64`} alt={user.username || user.id} />
-              <AvatarFallback>{fallbackAvatar}</AvatarFallback>
-            </Avatar>
-            <CardTitle className="text-2xl mt-3 font-bold">{displayName}</CardTitle>
-            <p className="text-sm text-blue-300">@{user.username || 'telegram_user'}</p>
-          </CardHeader>
+    <div className="min-h-screen w-full bg-gradient-to-br from-[#0e0e13] via-[#0a0a0f] to-[#050509] flex flex-col justify-between px-4 py-6 overflow-hidden">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
+        <div className="flex flex-col items-center text-white">
+          <Avatar className="h-24 w-24 border-4 border-blue-500 mb-4">
+            <AvatarImage src={user.profilePicUrl || `https://avatar.vercel.sh/${user.username || user.id}.png?size=64`} alt={user.username || user.id} />
+            <AvatarFallback>{fallbackAvatar}</AvatarFallback>
+          </Avatar>
+          <h2 className="text-2xl font-bold text-center drop-shadow-md">{displayName}</h2>
+          <p className="text-sm text-blue-400">@{user.username || 'telegram_user'}</p>
+        </div>
 
-          <CardContent className="grid grid-cols-2 gap-4 w-full mt-6 px-2">
-            <div className="bg-slate-800 rounded-xl p-3 flex flex-col items-center text-sm">
-              <Zap className="h-5 w-5 text-yellow-400 mb-1" />
-              <p className="text-muted-foreground">Energy</p>
-              <p className="text-lg font-bold text-white">{user.energy || 0}</p>
-            </div>
-            <div className="bg-slate-800 rounded-xl p-3 flex flex-col items-center text-sm">
-              <Wallet className="h-5 w-5 text-green-400 mb-1" />
-              <p className="text-muted-foreground">Balance</p>
-              <p className="text-lg font-bold text-white">{user.balance || 0} STON</p>
-            </div>
-            <div className="bg-slate-800 rounded-xl p-3 flex flex-col items-center text-sm">
-              <span className="text-purple-400">👥</span>
-              <p className="text-muted-foreground">Referrals</p>
-              <p className="text-lg font-bold text-white">{user.referrals || 0}</p>
-            </div>
-            <div className="bg-slate-800 rounded-xl p-3 flex flex-col items-center text-sm">
-              <span className="text-cyan-400">✅</span>
-              <p className="text-muted-foreground">Tasks Done</p>
-              <p className="text-lg font-bold text-white">{tasksDoneCount}</p>
-            </div>
-          </CardContent>
+        <div className="grid grid-cols-2 gap-4 mt-6">
+          <div className="bg-[#161B22] rounded-xl p-4 flex flex-col items-center">
+            <Zap className="text-yellow-400 mb-1" />
+            <p className="text-sm text-muted-foreground">Energy</p>
+            <p className="text-lg font-bold">{user.energy?.toLocaleString() || '0'}</p>
+          </div>
+          <div className="bg-[#161B22] rounded-xl p-4 flex flex-col items-center">
+            <CheckCircle className="text-green-400 mb-1" />
+            <p className="text-sm text-muted-foreground">Balance</p>
+            <p className="text-lg font-bold">{user.balance?.toLocaleString() || '0'} STON</p>
+          </div>
+          <div className="bg-[#161B22] rounded-xl p-4 flex flex-col items-center">
+            <Users className="text-purple-400 mb-1" />
+            <p className="text-sm text-muted-foreground">Referrals</p>
+            <p className="text-lg font-bold">{user.referrals || 0}</p>
+          </div>
+          <div className="bg-[#161B22] rounded-xl p-4 flex flex-col items-center">
+            <CheckCircle className="text-cyan-400 mb-1" />
+            <p className="text-sm text-muted-foreground">Tasks Done</p>
+            <p className="text-lg font-bold">{tasksDoneCount}</p>
+          </div>
+        </div>
 
-          <CardFooter className="w-full flex flex-col mt-6 gap-4 px-2">
-            <p className="text-left w-full font-semibold text-blue-400">TON Wallet</p>
-            {user.wallet ? (
-              <div className="flex flex-col gap-1 bg-slate-900 rounded-xl px-4 py-2 w-full text-sm shadow-md">
-                <div className="flex items-center gap-2">
-                  <Wallet className="h-4 w-4 text-green-400" />
-                  <span className="font-mono text-xs break-all">{user.wallet}</span>
-                </div>
-                <Button variant="ghost" size="sm" onClick={handleDisconnectWallet} className="self-start text-red-400 px-2">
-                  Disconnect
-                </Button>
-              </div>
-            ) : (
-              <Button className="bg-purple-600 hover:bg-purple-700 text-white w-full" onClick={() => setShowWalletDialog(true)}>
-                <Wallet className="h-4 w-4 mr-2" /> Connect Wallet
-              </Button>
-            )}
-            <Button variant="secondary" disabled className="w-full bg-gray-700 text-gray-300">
-              <Gift className="mr-2 h-4 w-4" /> Claim Rewards (Coming Soon)
+        <div className="mt-6 px-2">
+          <p className="text-sm text-blue-300 mb-2">TON Wallet</p>
+          {user.wallet ? (
+            <div className="flex items-center justify-between bg-[#161B22] rounded-xl p-3">
+              <span className="text-xs font-mono text-white break-all">{user.wallet}</span>
+              <Button variant="ghost" size="sm" onClick={handleDisconnectWallet}>Disconnect</Button>
+            </div>
+          ) : (
+            <Button onClick={() => setShowDialog(true)} className="w-full bg-gradient-to-br from-purple-600 to-indigo-600 text-white">
+              <Wallet className="mr-2" /> Connect Wallet
             </Button>
-          </CardFooter>
-        </Card>
+          )}
+        </div>
+
+        <div className="mt-4 px-2">
+          <Button size="sm" variant="secondary" disabled className="w-full opacity-60 cursor-not-allowed">
+            <Gift className="mr-2" /> Claim Rewards (Coming Soon)
+          </Button>
+        </div>
       </motion.div>
 
-      <AlertDialog open={showWalletDialog} onOpenChange={setShowWalletDialog}>
-        <AlertDialogContent className="bg-slate-900 text-white rounded-xl">
-          <div className="flex justify-between items-center">
-            <AlertDialogTitle className="text-lg">Connect Wallet</AlertDialogTitle>
-            <button onClick={() => setShowWalletDialog(false)} className="text-white hover:text-red-400">
+      {showDialog && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center">
+          <div className="bg-[#121212] w-11/12 max-w-sm p-6 rounded-xl shadow-xl relative">
+            <button onClick={() => setShowDialog(false)} className="absolute top-2 right-2 text-white hover:text-red-500">
               <X className="w-5 h-5" />
             </button>
+            <h3 className="text-lg font-semibold mb-4 text-white">Enter TON Wallet Address</h3>
+            <Input
+              type="text"
+              placeholder="EQ..."
+              value={walletInput}
+              onChange={(e) => setWalletInput(e.target.value)}
+              className="mb-4 text-xs"
+            />
+            <Button onClick={handleConnectWallet} className="w-full bg-gradient-to-br from-purple-600 to-indigo-600 text-white">
+              <LinkIcon className="mr-2 h-4 w-4" /> Connect
+            </Button>
           </div>
-          <AlertDialogDescription className="text-sm text-muted-foreground mb-4">
-            Enter your TON wallet address (48 characters, starts with EQ/UQ).
-          </AlertDialogDescription>
-          <Input
-            type="text"
-            placeholder="EQXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-            value={walletInput}
-            onChange={(e) => setWalletInput(e.target.value)}
-            className="mb-3"
-          />
-          <Button onClick={handleConnectWallet} className="w-full bg-purple-600 hover:bg-purple-700">
-            <LinkIcon className="mr-2 h-4 w-4" /> Connect Wallet
-          </Button>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+        </div>
+      )}
+    </div>
   );
 };
 
