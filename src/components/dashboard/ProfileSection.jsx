@@ -1,45 +1,54 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Input } from '@/components/ui/input';
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+  CardDescription
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Wallet, Gift, Link as LinkIcon, Zap, BadgeCheck, UserCheck, ListChecks } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Wallet, Gift, Zap, Users, CheckCircle, X } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { connectWallet, disconnectWallet, getCurrentUser } from '@/data';
+import { UserContext } from '@/App';
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 10 },
+  visible: { opacity: 1, y: 0 },
+};
 
 const ProfileSection = ({ user, refreshUserData }) => {
   const [walletInput, setWalletInput] = useState('');
+  const [showWalletModal, setShowWalletModal] = useState(false);
   const { toast } = useToast();
 
   const handleConnectWallet = async () => {
-    if (!user?.id) return;
-    if (walletInput.trim()) {
-      if (walletInput.length === 48 && (walletInput.startsWith('EQ') || walletInput.startsWith('UQ'))) {
-        const success = await connectWallet(user.id, walletInput);
-        if (success) {
-          const updatedUser = await getCurrentUser(user.id);
-          if (updatedUser) refreshUserData(updatedUser);
-          setWalletInput('');
-          toast({
-            title: "Wallet Connected",
-            description: `Wallet ${walletInput.slice(0, 6)}...${walletInput.slice(-4)} added.`,
-            variant: "success",
-          });
-        } else {
-          toast({ title: "Error", description: "Failed to connect wallet.", variant: "destructive" });
-        }
-      } else {
+    if (!user?.id || !walletInput.trim()) return;
+
+    if (walletInput.length === 48 && (walletInput.startsWith('EQ') || walletInput.startsWith('UQ'))) {
+      const success = await connectWallet(user.id, walletInput);
+      if (success) {
+        const updatedUser = await getCurrentUser(user.id);
+        if (updatedUser) refreshUserData(updatedUser);
+        setWalletInput('');
+        setShowWalletModal(false);
         toast({
-          title: "Invalid Wallet",
-          description: "Must be 48 chars starting with EQ or UQ.",
-          variant: "destructive",
+          title: "Wallet Connected",
+          description: `Wallet ${walletInput.slice(0, 6)}...${walletInput.slice(-4)} connected.`,
+          variant: "success",
         });
+      } else {
+        toast({ title: "Error", description: "Failed to connect wallet.", variant: "destructive" });
       }
     } else {
       toast({
-        title: "Missing Address",
-        description: "Please enter your TON wallet address.",
-        variant: "warning",
+        title: "Invalid Address",
+        description: "Address must be 48 characters and start with EQ or UQ.",
+        variant: "destructive",
       });
     }
   };
@@ -50,98 +59,105 @@ const ProfileSection = ({ user, refreshUserData }) => {
     if (success) {
       const updatedUser = await getCurrentUser(user.id);
       if (updatedUser) refreshUserData(updatedUser);
-      toast({ title: "Wallet Disconnected" });
-    } else {
-      toast({ title: "Error", description: "Failed to disconnect wallet.", variant: "destructive" });
+      toast({ title: "Wallet Disconnected", variant: "default" });
     }
   };
 
   const displayName = user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.username || `User ${user.id}`;
   const fallbackAvatar = displayName?.substring(0, 2).toUpperCase() || 'U';
-  const tasksDoneCount = user.tasks ? Object.values(user.tasks).filter(Boolean).length : 0;
+  const tasksDone = user.tasks ? Object.values(user.tasks).filter(Boolean).length : 0;
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className="w-full"
+      className="p-4"
+      initial="hidden"
+      animate="visible"
+      variants={itemVariants}
     >
-      <div className="rounded-xl p-4 sm:p-6 bg-gradient-to-br from-sky-900 to-black text-white shadow-xl space-y-6">
-        {/* Header */}
-        <div className="flex items-center gap-4">
-          <Avatar className="w-16 h-16 ring ring-sky-500 shadow-md">
-            <AvatarImage src={user.profilePicUrl || `https://avatar.vercel.sh/${user.username || user.id}.png`} />
+      <Card className="rounded-2xl shadow-xl bg-gradient-to-br from-slate-900 to-gray-900 text-white">
+        <CardHeader className="flex items-center gap-4">
+          <Avatar className="h-16 w-16 border-2 border-blue-500">
+            <AvatarImage src={user.profilePicUrl || `https://avatar.vercel.sh/${user.username || user.id}.png?size=64`} alt={user.username || user.id} />
             <AvatarFallback>{fallbackAvatar}</AvatarFallback>
           </Avatar>
           <div>
-            <p className="text-xl font-semibold">{displayName}</p>
-            <p className="text-sky-300 text-sm">@{user.username || 'telegram_user'}</p>
+            <CardTitle className="text-xl font-bold tracking-tight">{displayName}</CardTitle>
+            <CardDescription className="text-sm text-blue-300">@{user.username || 'telegram_user'}</CardDescription>
           </div>
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 gap-4 text-center">
-          <div className="bg-white/10 p-4 rounded-xl flex flex-col items-center">
-            <Zap className="h-5 w-5 text-yellow-400 mb-1" />
-            <p className="text-sm text-sky-200">Energy</p>
-            <p className="font-bold text-lg">{user.energy || 0}</p>
+        </CardHeader>
+        <CardContent className="grid grid-cols-2 gap-4 text-sm text-white">
+          <div className="bg-slate-800/70 p-3 rounded-lg flex flex-col items-center">
+            <Zap className="text-yellow-400 mb-1" />
+            <p className="text-xs text-slate-300">Energy</p>
+            <p className="text-lg font-semibold">{user.energy || 0}</p>
           </div>
-          <div className="bg-white/10 p-4 rounded-xl flex flex-col items-center">
-            <BadgeCheck className="h-5 w-5 text-green-400 mb-1" />
-            <p className="text-sm text-sky-200">Balance</p>
-            <p className="font-bold text-lg">{user.balance || 0} STON</p>
+          <div className="bg-slate-800/70 p-3 rounded-lg flex flex-col items-center">
+            <CheckCircle className="text-green-400 mb-1" />
+            <p className="text-xs text-slate-300">Balance</p>
+            <p className="text-lg font-semibold">{user.balance || 0} STON</p>
           </div>
-          <div className="bg-white/10 p-4 rounded-xl flex flex-col items-center">
-            <UserCheck className="h-5 w-5 text-indigo-400 mb-1" />
-            <p className="text-sm text-sky-200">Referrals</p>
-            <p className="font-bold text-lg">{user.referrals || 0}</p>
+          <div className="bg-slate-800/70 p-3 rounded-lg flex flex-col items-center">
+            <Users className="text-purple-400 mb-1" />
+            <p className="text-xs text-slate-300">Referrals</p>
+            <p className="text-lg font-semibold">{user.referrals || 0}</p>
           </div>
-          <div className="bg-white/10 p-4 rounded-xl flex flex-col items-center">
-            <ListChecks className="h-5 w-5 text-teal-400 mb-1" />
-            <p className="text-sm text-sky-200">Tasks Done</p>
-            <p className="font-bold text-lg">{tasksDoneCount}</p>
+          <div className="bg-slate-800/70 p-3 rounded-lg flex flex-col items-center">
+            <CheckCircle className="text-cyan-400 mb-1" />
+            <p className="text-xs text-slate-300">Tasks Done</p>
+            <p className="text-lg font-semibold">{tasksDone}</p>
           </div>
-        </div>
-
-        {/* Wallet Section */}
-        <div className="space-y-3">
-          <p className="text-sky-300 font-medium">TON Wallet</p>
+        </CardContent>
+        <CardFooter className="flex flex-col items-center gap-3 pt-4">
+          <p className="text-sm font-semibold text-blue-300 w-full text-left">TON Wallet</p>
           {user.wallet ? (
-            <div className="bg-white/10 p-3 rounded-lg flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs font-mono break-all">
-                <Wallet className="text-green-400 w-4 h-4" />
-                <span>{user.wallet}</span>
-              </div>
-              <Button variant="ghost" size="sm" onClick={handleDisconnectWallet} className="text-red-400">
+            <div className="flex items-center gap-2">
+              <Wallet className="text-green-400" />
+              <p className="font-mono text-xs bg-slate-700 rounded px-2 py-1">{user.wallet}</p>
+              <Button variant="destructive" size="sm" onClick={handleDisconnectWallet}>
                 Disconnect
               </Button>
             </div>
           ) : (
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Input
-                placeholder="Enter your TON wallet"
-                value={walletInput}
-                onChange={(e) => setWalletInput(e.target.value)}
-                className="bg-white/10 border-white/20 text-sm text-white placeholder:text-sky-300"
-              />
-              <Button onClick={handleConnectWallet} size="sm" className="bg-sky-600 hover:bg-sky-700 text-white">
-                <LinkIcon className="h-4 w-4 mr-1" /> Connect
-              </Button>
+            <Button
+              className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow"
+              onClick={() => setShowWalletModal(true)}
+            >
+              <Wallet className="mr-2 h-4 w-4" /> Connect Wallet
+            </Button>
+          )}
+
+          {showWalletModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center">
+              <motion.div
+                className="bg-white rounded-xl p-6 w-11/12 max-w-sm shadow-2xl text-gray-800"
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.8, opacity: 0 }}
+              >
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-lg font-semibold">Enter TON Wallet</h2>
+                  <Button variant="ghost" size="icon" onClick={() => setShowWalletModal(false)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                <Input
+                  placeholder="EQ... or UQ..."
+                  value={walletInput}
+                  onChange={(e) => setWalletInput(e.target.value)}
+                  className="mb-4"
+                />
+                <Button onClick={handleConnectWallet} className="w-full bg-blue-600 text-white hover:bg-blue-700">
+                  Connect Wallet
+                </Button>
+              </motion.div>
             </div>
           )}
-        </div>
 
-        {/* Claim Rewards */}
-        <Button
-          size="lg"
-          variant="outline"
-          disabled
-          className="w-full border-white/30 text-sky-300 hover:bg-white/10"
-        >
-          <Gift className="mr-2 h-5 w-5" /> Claim Rewards (Coming Soon)
-        </Button>
-      </div>
+          <Button variant="secondary" disabled className="w-full">
+            <Gift className="mr-2 h-4 w-4" /> Claim Rewards (Coming Soon)
+          </Button>
+        </CardFooter>
+      </Card>
     </motion.div>
   );
 };
