@@ -1,14 +1,11 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Wallet, Link as LinkIcon, Gift, Zap, Users, CheckCircle, X } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { connectWallet, disconnectWallet, getCurrentUser } from '@/data';
-import { UserContext } from '@/App';
-import AlertDialog from '@/components/ui/alert-dialog';
 
 const ProfileSection = ({ user, refreshUserData }) => {
   const [walletInput, setWalletInput] = useState('');
@@ -66,79 +63,110 @@ const ProfileSection = ({ user, refreshUserData }) => {
   const fallbackAvatar = displayName?.substring(0, 2).toUpperCase() || 'U';
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-[#0e0e13] via-[#0a0a0f] to-[#050509] flex flex-col justify-between px-4 py-6 overflow-hidden">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-        <div className="flex flex-col items-center text-white">
-          <Avatar className="h-24 w-24 border-4 border-blue-500 mb-4">
+    <div className="fixed inset-0 bg-gradient-to-br from-[#0e0e13] via-[#0a0a0f] to-[#050509] flex flex-col justify-start px-4 py-6 overflow-hidden touch-none">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }} 
+        animate={{ opacity: 1, y: 0 }} 
+        transition={{ duration: 0.6 }}
+        className="h-full flex flex-col"
+      >
+        <div className="flex flex-col items-center text-white mb-8">
+          <Avatar className="h-24 w-24 border-4 border-blue-500 mb-4 shadow-lg shadow-blue-500/20">
             <AvatarImage src={user.profilePicUrl || `https://avatar.vercel.sh/${user.username || user.id}.png?size=64`} alt={user.username || user.id} />
-            <AvatarFallback>{fallbackAvatar}</AvatarFallback>
+            <AvatarFallback className="bg-blue-900">{fallbackAvatar}</AvatarFallback>
           </Avatar>
           <h2 className="text-2xl font-bold text-center drop-shadow-md">{displayName}</h2>
           <p className="text-sm text-blue-400">@{user.username || 'telegram_user'}</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mt-6">
-          <div className="bg-[#161B22] rounded-xl p-4 flex flex-col items-center">
-            <Zap className="text-yellow-400 mb-1" />
-            <p className="text-sm text-muted-foreground">Energy</p>
-            <p className="text-lg font-bold">{user.energy?.toLocaleString() || '0'}</p>
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <div className="bg-[#111318]/80 backdrop-blur-sm rounded-xl p-4 flex flex-col items-center border border-[#232530]/50">
+            <Zap className="text-yellow-400 mb-1 h-5 w-5" />
+            <p className="text-xs text-gray-400">Energy</p>
+            <p className="text-lg font-bold text-white">{user.energy?.toLocaleString() || '0'}</p>
           </div>
-          <div className="bg-[#161B22] rounded-xl p-4 flex flex-col items-center">
-            <CheckCircle className="text-green-400 mb-1" />
-            <p className="text-sm text-muted-foreground">Balance</p>
-            <p className="text-lg font-bold">{user.balance?.toLocaleString() || '0'} STON</p>
+          <div className="bg-[#111318]/80 backdrop-blur-sm rounded-xl p-4 flex flex-col items-center border border-[#232530]/50">
+            <CheckCircle className="text-green-400 mb-1 h-5 w-5" />
+            <p className="text-xs text-gray-400">Balance</p>
+            <p className="text-lg font-bold text-white">{user.balance?.toLocaleString() || '0'} STON</p>
           </div>
-          <div className="bg-[#161B22] rounded-xl p-4 flex flex-col items-center">
-            <Users className="text-purple-400 mb-1" />
-            <p className="text-sm text-muted-foreground">Referrals</p>
-            <p className="text-lg font-bold">{user.referrals || 0}</p>
+          <div className="bg-[#111318]/80 backdrop-blur-sm rounded-xl p-4 flex flex-col items-center border border-[#232530]/50">
+            <Users className="text-purple-400 mb-1 h-5 w-5" />
+            <p className="text-xs text-gray-400">Referrals</p>
+            <p className="text-lg font-bold text-white">{user.referrals || 0}</p>
           </div>
-          <div className="bg-[#161B22] rounded-xl p-4 flex flex-col items-center">
-            <CheckCircle className="text-cyan-400 mb-1" />
-            <p className="text-sm text-muted-foreground">Tasks Done</p>
-            <p className="text-lg font-bold">{tasksDoneCount}</p>
+          <div className="bg-[#111318]/80 backdrop-blur-sm rounded-xl p-4 flex flex-col items-center border border-[#232530]/50">
+            <CheckCircle className="text-cyan-400 mb-1 h-5 w-5" />
+            <p className="text-xs text-gray-400">Tasks Done</p>
+            <p className="text-lg font-bold text-white">{tasksDoneCount}</p>
           </div>
         </div>
 
-        <div className="mt-6 px-2">
-          <p className="text-sm text-blue-300 mb-2">TON Wallet</p>
+        <div className="mb-5">
+          <p className="text-sm text-blue-300 mb-2 font-medium">TON Wallet</p>
           {user.wallet ? (
-            <div className="flex items-center justify-between bg-[#161B22] rounded-xl p-3">
+            <div className="flex items-center justify-between bg-[#111318]/80 backdrop-blur-sm rounded-xl p-3 border border-[#232530]/50">
               <span className="text-xs font-mono text-white break-all">{user.wallet}</span>
-              <Button variant="ghost" size="sm" onClick={handleDisconnectWallet}>Disconnect</Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={handleDisconnectWallet}
+                className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
+              >
+                Disconnect
+              </Button>
             </div>
           ) : (
-            <Button onClick={() => setShowDialog(true)} className="w-full bg-gradient-to-br from-purple-600 to-indigo-600 text-white">
-              <Wallet className="mr-2" /> Connect Wallet
+            <Button 
+              onClick={() => setShowDialog(true)} 
+              className="w-full bg-gradient-to-br from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 text-white border-none shadow-lg shadow-blue-900/30"
+            >
+              <Wallet className="mr-2 h-4 w-4" /> Connect Wallet
             </Button>
           )}
         </div>
 
-        <div className="mt-4 px-2">
-          <Button size="sm" variant="secondary" disabled className="w-full opacity-60 cursor-not-allowed">
-            <Gift className="mr-2" /> Claim Rewards (Coming Soon)
+        <div className="mt-auto mb-4">
+          <Button 
+            size="sm" 
+            variant="secondary" 
+            disabled 
+            className="w-full opacity-60 cursor-not-allowed bg-[#111318]/80 backdrop-blur-sm border border-[#232530]/50 text-gray-300"
+          >
+            <Gift className="mr-2 h-4 w-4" /> Claim Rewards (Coming Soon)
           </Button>
         </div>
       </motion.div>
 
       {showDialog && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center">
-          <div className="bg-[#121212] w-11/12 max-w-sm p-6 rounded-xl shadow-xl relative">
-            <button onClick={() => setShowDialog(false)} className="absolute top-2 right-2 text-white hover:text-red-500">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center touch-none">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.2 }}
+            className="bg-[#0e0e13] w-11/12 max-w-sm p-6 rounded-xl shadow-xl border border-[#232530]/50 relative"
+          >
+            <button 
+              onClick={() => setShowDialog(false)} 
+              className="absolute top-3 right-3 text-gray-400 hover:text-white"
+            >
               <X className="w-5 h-5" />
             </button>
-            <h3 className="text-lg font-semibold mb-4 text-white">Enter TON Wallet Address</h3>
+            <h3 className="text-lg font-semibold mb-5 text-white">Connect TON Wallet</h3>
             <Input
               type="text"
               placeholder="EQ..."
               value={walletInput}
               onChange={(e) => setWalletInput(e.target.value)}
-              className="mb-4 text-xs"
+              className="mb-4 text-xs bg-[#161621] border-[#232530] focus:border-blue-500 text-white"
             />
-            <Button onClick={handleConnectWallet} className="w-full bg-gradient-to-br from-purple-600 to-indigo-600 text-white">
+            <Button 
+              onClick={handleConnectWallet} 
+              className="w-full bg-gradient-to-br from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 text-white shadow-lg shadow-blue-900/20"
+            >
               <LinkIcon className="mr-2 h-4 w-4" /> Connect
             </Button>
-          </div>
+          </motion.div>
         </div>
       )}
     </div>
