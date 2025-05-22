@@ -48,6 +48,7 @@ function AppContent({
       exit="out"
       variants={pageVariants}
       transition={pageTransition}
+      className="h-full"
     >
       <Routes>
         <Route path="/" element={<DashboardPage activeView="home" />} />
@@ -116,7 +117,6 @@ function App() {
           setCurrentUser(JSON.parse(cachedUser));
         }
 
-        // Always refresh with latest user data from Firestore
         const userData = await initializeAppData();
 
         if (userData) {
@@ -187,8 +187,8 @@ function App() {
 
   return (
     <UserContext.Provider value={{ user: currentUser, setUser: setCurrentUser }}>
-      <div className="min-h-screen flex flex-col bg-background dark:bg-gray-900">
-        <main className={`flex-grow ${isGameRoute ? '' : 'container mx-auto px-4 py-8'}`}>
+      <div className="min-h-screen h-[100dvh] flex flex-col bg-background dark:bg-gray-900 overflow-hidden">
+        <main className="flex-grow">
           <AnimatePresence mode="wait">
             <AppContent
               isAdmin={isAdmin}
