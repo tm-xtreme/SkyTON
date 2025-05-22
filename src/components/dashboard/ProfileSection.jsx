@@ -64,14 +64,14 @@ const ProfileSection = ({ user, refreshUserData }) => {
 
   return (
     <div
-      className="fixed inset-0 h-screen w-screen bg-gradient-to-br from-[#0e0e13] via-[#0a0a0f] to-[#050509] flex flex-col px-4 py-6 overflow-hidden select-none"
-      style={{ touchAction: 'none' }} // disables double-tap zoom on mobile
+      className="fixed inset-0 flex flex-col px-4 py-6 bg-gradient-to-br from-[#0e0e13] via-[#0a0a0f] to-[#050509] select-none"
+      style={{ height: '100vh', width: '100vw', overflow: 'hidden', touchAction: 'none' }}
     >
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="flex flex-col h-full"
+        className="flex flex-col flex-1"
       >
         <div className="flex flex-col items-center text-white mb-8">
           <Avatar className="h-24 w-24 border-4 border-blue-500 mb-4 shadow-lg shadow-blue-500/20">
