@@ -125,69 +125,76 @@ const AdminPage = () => {
   };
 
   return (
-    <motion.div className="space-y-6" variants={containerVariants} initial="hidden" animate="visible">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl">Admin Panel</CardTitle>
-          <CardDescription>Manage users, tasks, and settings.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="users" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="users">
-                <Users className="mr-2 h-4 w-4" /> Users
-              </TabsTrigger>
-              <TabsTrigger value="tasks">
-                <ListChecks className="mr-2 h-4 w-4" /> Tasks
-              </TabsTrigger>
-              <TabsTrigger value="pending">
-                <CheckSquare className="mr-2 h-4 w-4" /> Pending
-              </TabsTrigger>
-            </TabsList>
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="w-full min-h-[100dvh] px-4 pb-28 pt-6 bg-[#0f0f0f] text-white overflow-y-auto"
+    >
+      <div className="max-w-4xl mx-auto space-y-6">
+        <Card className="bg-white/5 border border-white/10 rounded-xl shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-2xl text-white">Admin Panel</CardTitle>
+            <CardDescription className="text-sm text-muted-foreground">Manage users, tasks, and verifications</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="users" className="w-full">
+              <TabsList className="grid w-full grid-cols-3 bg-white/10 text-white">
+                <TabsTrigger value="users">
+                  <Users className="mr-2 h-4 w-4" /> Users
+                </TabsTrigger>
+                <TabsTrigger value="tasks">
+                  <ListChecks className="mr-2 h-4 w-4" /> Tasks
+                </TabsTrigger>
+                <TabsTrigger value="pending">
+                  <CheckSquare className="mr-2 h-4 w-4" /> Pending
+                </TabsTrigger>
+              </TabsList>
 
-            <TabsContent value="users" className="mt-4">
-              {loadingUsers ? (
-                <div className="flex justify-center items-center h-32">
-                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                </div>
-              ) : (
-                <UserManagementTab
-                  users={users}
-                  searchTerm={searchTerm}
-                  setSearchTerm={setSearchTerm}
-                  handleBanToggle={handleBanToggle}
+              <TabsContent value="users" className="mt-4">
+                {loadingUsers ? (
+                  <div className="flex justify-center items-center h-32">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  </div>
+                ) : (
+                  <UserManagementTab
+                    users={users}
+                    searchTerm={searchTerm}
+                    setSearchTerm={setSearchTerm}
+                    handleBanToggle={handleBanToggle}
+                  />
+                )}
+              </TabsContent>
+
+              <TabsContent value="tasks" className="mt-4">
+                <TaskManagementTab
+                  tasks={tasks}
+                  newTask={newTask}
+                  editingTask={editingTask}
+                  handleNewTaskChange={handleNewTaskChange}
+                  handleNewTaskVerificationTypeChange={handleNewTaskVerificationTypeChange}
+                  handleAddTask={handleAddTask}
+                  handleEditingTaskChange={handleEditingTaskChange}
+                  handleEditingTaskActiveChange={handleEditingTaskActiveChange}
+                  handleEditingTaskVerificationTypeChange={handleEditingTaskVerificationTypeChange}
+                  handleUpdateTask={handleUpdateTask}
+                  setEditingTask={setEditingTask}
+                  handleEditClick={handleEditClick}
+                  handleDeleteTask={handleDeleteTask}
                 />
-              )}
-            </TabsContent>
+              </TabsContent>
 
-            <TabsContent value="tasks" className="mt-4">
-              <TaskManagementTab
-                tasks={tasks}
-                newTask={newTask}
-                editingTask={editingTask}
-                handleNewTaskChange={handleNewTaskChange}
-                handleNewTaskVerificationTypeChange={handleNewTaskVerificationTypeChange}
-                handleAddTask={handleAddTask}
-                handleEditingTaskChange={handleEditingTaskChange}
-                handleEditingTaskActiveChange={handleEditingTaskActiveChange}
-                handleEditingTaskVerificationTypeChange={handleEditingTaskVerificationTypeChange}
-                handleUpdateTask={handleUpdateTask}
-                setEditingTask={setEditingTask}
-                handleEditClick={handleEditClick}
-                handleDeleteTask={handleDeleteTask}
-              />
-            </TabsContent>
-
-            <TabsContent value="pending" className="mt-4">
-              <PendingVerificationTab
-                pendingItems={pendingItems}
-                onApprove={handleApprove}
-                onReject={handleReject}
-              />
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+              <TabsContent value="pending" className="mt-4">
+                <PendingVerificationTab
+                  pendingItems={pendingItems}
+                  onApprove={handleApprove}
+                  onReject={handleReject}
+                />
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      </div>
     </motion.div>
   );
 };
