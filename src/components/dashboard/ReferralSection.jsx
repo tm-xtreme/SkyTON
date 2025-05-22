@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Copy } from 'lucide-react';
+import { Copy, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { generateReferralLink } from '@/data';
 import { db } from '@/lib/firebase';
@@ -15,6 +15,7 @@ const ReferralSection = ({ user }) => {
   const { toast } = useToast();
   const [referredUsers, setReferredUsers] = useState([]);
   const [referrerInfo, setReferrerInfo] = useState(null);
+  const [loadingReferrals, setLoadingReferrals] = useState(true);
 
   const referralLink = user.referralLink || generateReferralLink(user.id);
 
@@ -34,6 +35,7 @@ const ReferralSection = ({ user }) => {
 
   useEffect(() => {
     const fetchReferredUsers = async () => {
+      setLoadingReferrals(true);
       const referredIds = user.referredUsers || [];
       const fetchedUsers = await Promise.all(
         referredIds.map(async (uid) => {
@@ -51,6 +53,7 @@ const ReferralSection = ({ user }) => {
         })
       );
       setReferredUsers(fetchedUsers.filter(Boolean));
+      setLoadingReferrals(false);
     };
 
     const fetchReferrerInfo = async () => {
@@ -100,7 +103,11 @@ const ReferralSection = ({ user }) => {
           <p className="text-lg font-bold text-green-300">{user.referrals || 0}</p>
         </div>
 
-        {referredUsers.length > 0 && (
+        {loadingReferrals ? (
+          <div className="flex justify-center items-center pt-4">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : referredUsers.length > 0 && (
           <div>
             <p className="text-sm font-semibold mb-2">Referred Users</p>
             <div className="grid grid-cols-2 gap-2">
