@@ -32,12 +32,11 @@ const TasksSection = ({ tasks = [], user, refreshUserData }) => {
     const isPending = user.pendingVerificationTasks?.includes(task.id);
     if (isCompleted || isPending) return;
 
-    // Special case for telegram join + auto
+    // Special case for telegram_join + auto
     if (task.verificationType === 'auto' && task.type === 'telegram_join') {
       try {
-        const res = await fetch(
-          `https://api.telegram.org/bot${import.meta.env.VITE_TG_BOT_TOKEN}/getChatMember?chat_id=@${task.target.replace('@', '')}&user_id=${user.id}`
-        );
+        const apiUrl = `https://api.telegram.org/bot${import.meta.env.VITE_TG_BOT_TOKEN}/getChatMember?chat_id=@${task.target.replace('@', '')}&user_id=${user.id}`;
+        const res = await fetch(apiUrl);
         const data = await res.json();
 
         if (data.ok) {
@@ -54,50 +53,50 @@ const TasksSection = ({ tasks = [], user, refreshUserData }) => {
             toast({ title: 'Not Verified', description: 'Please join the channel first.', variant: 'destructive' });
             return;
           }
-        } else if (data.error_code === 403) {
-          // Notify admin
-          fetch(`https://api.telegram.org/bot${import.meta.env.VITE_TG_BOT_TOKEN}/sendMessage`, {
+        } else if (data.error_code === 400 || data.error_code === 403) {
+          // Notify admin about bot permission issue
+          await fetch(`https://api.telegram.org/bot${import.meta.env.VITE_TG_BOT_TOKEN}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               chat_id: '5063003944',
-              text: `Bot is not admin in @${task.target}. Please fix permissions.`
+              text: `❗ Bot is not an admin or failed to access @${task.target}. Please ensure it's added correctly.`
             })
           });
-          toast({ title: 'Bot Issue', description: 'Verification failed. Please contact support.', variant: 'destructive' });
+          toast({ title: 'Bot Error', description: 'Bot is not admin in the group/channel. Contact support.', variant: 'destructive' });
           return;
         } else {
-          toast({ title: 'Telegram Error', description: 'Could not verify Telegram join.', variant: 'destructive' });
+          toast({ title: 'Telegram Error', description: 'Failed to verify. Please try again.', variant: 'destructive' });
           return;
         }
-      } catch (err) {
-        toast({ title: 'Error', description: 'Network error. Try again.', variant: 'destructive' });
+      } catch (error) {
+        toast({ title: 'Network Error', description: 'Could not reach Telegram servers.', variant: 'destructive' });
         return;
       }
     }
 
-    // Normal flow for auto/manual
+    // Normal flow
     let success = false;
-    let toastMessage = {};
-
     if (task.verificationType === 'auto') {
       success = await completeTask(user.id, task.id);
-      toastMessage = success
-        ? { title: 'Task Verified!', description: `You earned ${task.reward} STON!`, variant: 'success' }
-        : { title: 'Verification Failed', description: 'Could not verify task completion.', variant: 'destructive' };
+      toast({
+        title: success ? 'Task Verified!' : 'Verification Failed',
+        description: success ? `+${task.reward} STON` : 'Could not verify task completion.',
+        variant: success ? 'success' : 'destructive'
+      });
     } else {
       success = await requestManualVerification(user.id, task.id);
-      toastMessage = success
-        ? { title: 'Verification Requested', description: `\"${task.title}\" sent for review.`, variant: 'default' }
-        : { title: 'Request Failed', description: 'Try again later.', variant: 'destructive' };
+      toast({
+        title: success ? 'Verification Requested' : 'Request Failed',
+        description: success ? `"${task.title}" sent for review.` : 'Try again later.',
+        variant: success ? 'default' : 'destructive'
+      });
     }
 
     if (success) {
       const updatedUser = await getCurrentUser(user.id);
       if (updatedUser) refreshUserData(updatedUser);
     }
-
-    toast(toastMessage);
   };
 
   const handleCheckIn = async () => {
@@ -159,11 +158,13 @@ const TasksSection = ({ tasks = [], user, refreshUserData }) => {
                 <p className="text-xs text-green-400 font-semibold">+{task.reward} STON</p>
 
                 {isCompleted ? (
-                  <Badge variant="success" className="text-xs"> <CheckCircle className="h-3 w-3 mr-1" /> Done </Badge>
+                  <Badge variant="success" className="text-xs"><CheckCircle className="h-3 w-3 mr-1" /> Done</Badge>
                 ) : isPending ? (
-                  <Badge variant="warning" className="text-xs"> <Clock className="h-3 w-3 mr-1" /> Pending </Badge>
+                  <Badge variant="warning" className="text-xs"><Clock className="h-3 w-3 mr-1" /> Pending</Badge>
                 ) : isCheckInTask ? (
-                  <Button size="sm" onClick={handleCheckIn} disabled={isCompleted}> <CalendarCheck className="mr-1 h-4 w-4" /> {checkInDone ? 'Checked In' : 'Check In'} </Button>
+                  <Button size="sm" onClick={handleCheckIn} disabled={isCompleted}>
+                    <CalendarCheck className="mr-1 h-4 w-4" /> {checkInDone ? 'Checked In' : 'Check In'}
+                  </Button>
                 ) : task.type === 'referral' ? (
                   <Badge variant="outline" className="text-white border-gray-300">Via Invites</Badge>
                 ) : !hasClicked ? (
