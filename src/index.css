@@ -54,7 +54,7 @@
   }
 
   html, body, #root {
-    @apply h-full;
+    @apply h-full w-full overflow-hidden touch-none;
   }
 
   body {
@@ -197,5 +197,25 @@
 
 /* ===================== EXTRAS ===================== */
 .glass-card {
-  @apply bg-card/70 backdrop-blur-lg border border-border/20 shadow-lg;
+  @apply bg-card/80 backdrop-blur-lg border border-border/20 shadow-2xl rounded-xl;
+}
+
+/* ===================== PROFILE SECTION FIXES ===================== */
+.app-fullscreen {
+  @apply min-h-screen h-[100dvh] w-full overflow-hidden flex flex-col items-center justify-start px-4 py-6;
+  background: linear-gradient(to bottom, #020617 0%, #1e293b 100%);
+}
+
+.no-scroll {
+  overflow: hidden;
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
+.toast-solid {
+  @apply bg-slate-800 text-white border border-slate-700 shadow-md;
+}
+
+.dialog-glass {
+  @apply bg-background/90 backdrop-blur-lg border border-border/30 p-4 rounded-2xl shadow-xl;
   }
