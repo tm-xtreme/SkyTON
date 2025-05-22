@@ -90,7 +90,7 @@ const TasksSection = ({ tasks = [], user, refreshUserData }) => {
   };
 
   return (
-    <motion.div variants={itemVariants} className="w-full h-[100dvh] text-white px-4 pb-28 pt-6 bg-[#0f0f0f]">
+    <motion.div variants={itemVariants} className="w-full h-[100dvh] text-white px-4 pb-28 pt-6 bg-[#0f0f0f] overflow-y-auto">
       <div className="max-w-md mx-auto space-y-5">
         <div className="bg-gradient-to-r from-sky-700 to-sky-900 p-4 rounded-xl flex items-center justify-between shadow">
           <div>
