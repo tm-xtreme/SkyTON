@@ -16,23 +16,31 @@ const Navigation = ({ isAdmin }) => {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-background border-t border-border shadow-lg z-50">
-      <div className="flex justify-around items-center h-16 max-w-screen-md mx-auto px-2">
-        {navItems.map((item) => (
-          <button
-            key={item.path}
-            onClick={() => navigate(item.path)}
-            className={cn(
-              "flex flex-col items-center justify-center text-xs w-16 h-full transition-colors duration-200 ease-in-out",
-              location.pathname === item.path
-                ? 'text-primary font-semibold'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            <item.icon className="h-5 w-5 mb-1" />
-            {item.label}
-          </button>
-        ))}
+    <nav className="fixed bottom-0 left-0 right-0 z-50 backdrop-blur-lg bg-black/60 border-t border-white/10 rounded-t-xl">
+      <div className="flex justify-around items-center h-16 max-w-md mx-auto px-4">
+        {navItems.map((item) => {
+          const isActive = location.pathname === item.path;
+          return (
+            <button
+              key={item.path}
+              onClick={() => navigate(item.path)}
+              className={cn(
+                "flex flex-col items-center justify-center w-16 text-xs",
+                isActive
+                  ? "text-primary drop-shadow-md"
+                  : "text-muted-foreground hover:text-white transition"
+              )}
+            >
+              <item.icon
+                className={cn(
+                  "h-5 w-5 mb-1",
+                  isActive && "text-primary animate-pulse"
+                )}
+              />
+              {item.label}
+            </button>
+          );
+        })}
       </div>
     </nav>
   );
