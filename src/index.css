@@ -54,9 +54,9 @@
   }
 
   html, body, #root {
-  height: 100%;
-  overflow: hidden;
-  /*touch-action: none;*/
+  height: auto;
+  min-height: 100vh;
+  overflow-x: hidden;
   }
   
   body {
