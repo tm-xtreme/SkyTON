@@ -56,7 +56,7 @@
   html, body, #root {
   height: 100%;
   overflow: hidden;
-  touch-action: none;
+  /*touch-action: none;*/
   }
   
   body {
@@ -208,11 +208,11 @@
   background: linear-gradient(to bottom, #020617 0%, #1e293b 100%);
 }
 
-.no-scroll {
+/*.no-scroll {
   overflow: hidden;
   touch-action: none;
   overscroll-behavior: none;
-}
+}*/
 
 .toast-solid {
   @apply bg-slate-800 text-white border border-slate-700 shadow-md;
