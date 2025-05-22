@@ -1,18 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Loader2, CheckCircle, CalendarCheck, HelpCircle, Clock, Gamepad2, ArrowRight } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import {
   completeTask,
   performCheckIn,
   requestManualVerification,
   getCurrentUser,
-  isCheckInDoneToday
+  isCheckInDoneToday,
+  getAllTasks
 } from '@/data';
-import {
-  CheckCircle, CalendarCheck, HelpCircle, Clock, Gamepad2, ArrowRight
-} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const itemVariants = {
@@ -20,10 +19,22 @@ const itemVariants = {
   visible: { opacity: 1, y: 0 }
 };
 
-const TasksSection = ({ tasks = [], user, refreshUserData }) => {
+const TasksSection = ({ user, refreshUserData }) => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [clickedTasks, setClickedTasks] = useState({});
+  const [tasks, setTasks] = useState([]);
+  const [isLoadingTasks, setIsLoadingTasks] = useState(true);
+
+  useEffect(() => {
+    const fetchTasks = async () => {
+      setIsLoadingTasks(true);
+      const fetched = await getAllTasks();
+      setTasks(fetched || []);
+      setIsLoadingTasks(false);
+    };
+    fetchTasks();
+  }, []);
 
   const handleVerificationClick = async (task) => {
     if (!user?.id || !task?.id) return;
@@ -32,26 +43,18 @@ const TasksSection = ({ tasks = [], user, refreshUserData }) => {
     const isPending = user.pendingVerificationTasks?.includes(task.id);
     if (isCompleted || isPending) return;
 
-    // Special case for telegram join + auto
     if (task.verificationType === 'auto' && task.type === 'telegram_join') {
       try {
         const apiUrl = `https://api.telegram.org/bot${import.meta.env.VITE_TG_BOT_TOKEN}/getChatMember?chat_id=@${task.target.replace('@', '')}&user_id=${user.id}`;
         const res = await fetch(apiUrl);
         const data = await res.json();
 
-        if (data.ok) {
-          const status = data.result.status;
-          if (['member', 'administrator', 'creator'].includes(status)) {
-            const verified = await completeTask(user.id, task.id);
-            if (verified) {
-              const updatedUser = await getCurrentUser(user.id);
-              if (updatedUser) refreshUserData(updatedUser);
-              toast({ title: 'Joined Verified', description: `+${task.reward} STON`, variant: 'success' });
-              return;
-            }
-          } else {
-            toast({ title: 'Not Verified', description: 'Please join the channel first.', variant: 'destructive' });
-            setClickedTasks(prev => ({ ...prev, [task.id]: false }));
+        if (data.ok && ['member', 'administrator', 'creator'].includes(data.result.status)) {
+          const verified = await completeTask(user.id, task.id);
+          if (verified) {
+            const updatedUser = await getCurrentUser(user.id);
+            if (updatedUser) refreshUserData(updatedUser);
+            toast({ title: 'Joined Verified', description: `+${task.reward} STON`, variant: 'success' });
             return;
           }
         } else if (data.error_code === 400 || data.error_code === 403) {
@@ -66,18 +69,17 @@ const TasksSection = ({ tasks = [], user, refreshUserData }) => {
           toast({ title: 'Bot Error', description: 'Bot is not admin in the group/channel. Contact support.', variant: 'destructive' });
           return;
         } else {
-          toast({ title: 'Telegram Error', description: 'Failed to verify. Please try again.', variant: 'destructive' });
+          toast({ title: 'Not Verified', description: 'Please join the channel first.', variant: 'destructive' });
           setClickedTasks(prev => ({ ...prev, [task.id]: false }));
           return;
         }
-      } catch (error) {
+      } catch {
         toast({ title: 'Network Error', description: 'Could not reach Telegram servers.', variant: 'destructive' });
         setClickedTasks(prev => ({ ...prev, [task.id]: false }));
         return;
       }
     }
 
-    // Normal flow
     let success = false;
     if (task.verificationType === 'auto') {
       success = await completeTask(user.id, task.id);
@@ -116,10 +118,8 @@ const TasksSection = ({ tasks = [], user, refreshUserData }) => {
   const checkInDone = isCheckInDoneToday(user.lastCheckIn);
 
   const handlePlayGame = () => {
-    if (user?.id) {
-      sessionStorage.setItem('gameUserId', user.id);
-      navigate('/game');
-    }
+    sessionStorage.setItem('gameUserId', user.id);
+    navigate('/game');
   };
 
   const handleGoToTask = (taskId, url) => {
@@ -132,71 +132,79 @@ const TasksSection = ({ tasks = [], user, refreshUserData }) => {
       <div className="max-w-md mx-auto space-y-5">
         <h2 className="text-center text-lg font-bold text-white mb-2">Available Tasks</h2>
 
-        <div className="bg-gradient-to-r from-sky-700 to-sky-900 p-4 rounded-xl flex items-center justify-between shadow">
-          <div>
-            <p className="text-sm text-white font-semibold">Play Game</p>
-            <p className="text-xs text-gray-300">Catch STON gems and earn rewards!</p>
+        {isLoadingTasks ? (
+          <div className="flex justify-center py-10">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
-          <Button size="sm" onClick={handlePlayGame}>
-            <Gamepad2 className="mr-1 w-4 h-4" /> Play
-          </Button>
-        </div>
-
-        {tasks.filter(t => t.active).map(task => {
-          const isCheckInTask = task.type === 'daily_checkin';
-          const isCompleted = isCheckInTask ? checkInDone : user.tasks?.[task.id] === true;
-          const isPending = user.pendingVerificationTasks?.includes(task.id);
-          const targetUrl = task.type.includes('telegram') ? `https://t.me/${task.target.replace('@', '')}` : task.target;
-          const hasClicked = clickedTasks[task.id];
-
-          return (
-            <div key={task.id} className="bg-white/5 p-4 rounded-xl space-y-2 shadow-md">
-              <div className="flex flex-col">
-                <p className="text-sm font-semibold text-white">{task.title}</p>
-                <a
-                  href={targetUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-blue-400 hover:underline"
-                >
-                  {task.description}
-                </a>
+        ) : (
+          <>
+            <div className="bg-gradient-to-r from-sky-700 to-sky-900 p-4 rounded-xl flex items-center justify-between shadow">
+              <div>
+                <p className="text-sm text-white font-semibold">Play Game</p>
+                <p className="text-xs text-gray-300">Catch STON gems and earn rewards!</p>
               </div>
-
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-green-400 font-semibold">+{task.reward} STON</p>
-
-                {isCompleted ? (
-                  <Badge variant="success" className="text-xs">
-                    <CheckCircle className="h-3 w-3 mr-1" /> Done
-                  </Badge>
-                ) : isPending ? (
-                  <Badge variant="warning" className="text-xs">
-                    <Clock className="h-3 w-3 mr-1" /> Pending
-                  </Badge>
-                ) : isCheckInTask ? (
-                  <Button size="sm" onClick={handleCheckIn} disabled={isCompleted}>
-                    <CalendarCheck className="mr-1 h-4 w-4" /> {checkInDone ? 'Checked In' : 'Check In'}
-                  </Button>
-                ) : task.type === 'referral' ? (
-                  <Badge variant="outline" className="text-white border-gray-300">Via Invites</Badge>
-                ) : !hasClicked ? (
-                  <Button size="sm" onClick={() => handleGoToTask(task.id, targetUrl)}>
-                    Go <ArrowRight className="ml-1 h-4 w-4" />
-                  </Button>
-                ) : (
-                  <Button size="sm" onClick={() => handleVerificationClick(task)}>
-                    {task.verificationType === 'auto' ? (
-                      <><CheckCircle className="mr-1 h-4 w-4" /> Verify</>
-                    ) : (
-                      <><HelpCircle className="mr-1 h-4 w-4" /> Request</>
-                    )}
-                  </Button>
-                )}
-              </div>
+              <Button size="sm" onClick={handlePlayGame}>
+                <Gamepad2 className="mr-1 w-4 h-4" /> Play
+              </Button>
             </div>
-          );
-        })}
+
+            {tasks.filter(t => t.active).map(task => {
+              const isCheckInTask = task.type === 'daily_checkin';
+              const isCompleted = isCheckInTask ? checkInDone : user.tasks?.[task.id] === true;
+              const isPending = user.pendingVerificationTasks?.includes(task.id);
+              const targetUrl = task.type.includes('telegram') ? `https://t.me/${task.target.replace('@', '')}` : task.target;
+              const hasClicked = clickedTasks[task.id];
+
+              return (
+                <div key={task.id} className="bg-white/5 p-4 rounded-xl space-y-2 shadow-md">
+                  <div className="flex flex-col">
+                    <p className="text-sm font-semibold text-white">{task.title}</p>
+                    <a
+                      href={targetUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-400 hover:underline"
+                    >
+                      {task.description}
+                    </a>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-green-400 font-semibold">+{task.reward} STON</p>
+
+                    {isCompleted ? (
+                      <Badge variant="success" className="text-xs">
+                        <CheckCircle className="h-3 w-3 mr-1" /> Done
+                      </Badge>
+                    ) : isPending ? (
+                      <Badge variant="warning" className="text-xs">
+                        <Clock className="h-3 w-3 mr-1" /> Pending
+                      </Badge>
+                    ) : isCheckInTask ? (
+                      <Button size="sm" onClick={handleCheckIn} disabled={isCompleted}>
+                        <CalendarCheck className="mr-1 h-4 w-4" /> {checkInDone ? 'Checked In' : 'Check In'}
+                      </Button>
+                    ) : task.type === 'referral' ? (
+                      <Badge variant="outline" className="text-white border-gray-300">Via Invites</Badge>
+                    ) : !hasClicked ? (
+                      <Button size="sm" onClick={() => handleGoToTask(task.id, targetUrl)}>
+                        Go <ArrowRight className="ml-1 h-4 w-4" />
+                      </Button>
+                    ) : (
+                      <Button size="sm" onClick={() => handleVerificationClick(task)}>
+                        {task.verificationType === 'auto' ? (
+                          <><CheckCircle className="mr-1 h-4 w-4" /> Verify</>
+                        ) : (
+                          <><HelpCircle className="mr-1 h-4 w-4" /> Request</>
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </>
+        )}
       </div>
     </motion.div>
   );
