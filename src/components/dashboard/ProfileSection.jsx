@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Wallet, Link as LinkIcon, Gift, Zap, Users, CheckCircle, X } from 'lucide-react';
+import { Wallet, Link as LinkIcon, Gift, Zap, X } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { connectWallet, disconnectWallet, getCurrentUser } from '@/data';
+import { UserContext } from '@/App';
 
 const ProfileSection = ({ user, refreshUserData }) => {
   const [walletInput, setWalletInput] = useState('');
@@ -23,26 +24,18 @@ const ProfileSection = ({ user, refreshUserData }) => {
           setWalletInput('');
           setShowDialog(false);
           toast({
-            title: "Wallet Connected",
+            title: 'Wallet Connected',
             description: `Wallet ${walletInput.substring(0, 6)}...${walletInput.substring(walletInput.length - 4)} added.`,
-            variant: "success",
+            variant: 'success',
           });
         } else {
-          toast({ title: "Error", description: "Failed to connect wallet.", variant: "destructive" });
+          toast({ title: 'Error', description: 'Failed to connect wallet.', variant: 'destructive' });
         }
       } else {
-        toast({
-          title: "Invalid Wallet Address",
-          description: "Please enter a valid TON wallet address (should be 48 chars starting EQ/UQ).",
-          variant: "destructive",
-        });
+        toast({ title: 'Invalid Wallet', description: 'TON address must be 48 characters starting with EQ or UQ.', variant: 'destructive' });
       }
     } else {
-      toast({
-        title: "Wallet Address Required",
-        description: "Please enter your TON wallet address.",
-        variant: "destructive",
-      });
+      toast({ title: 'Wallet Required', description: 'Please enter your TON wallet address.', variant: 'destructive' });
     }
   };
 
@@ -52,122 +45,92 @@ const ProfileSection = ({ user, refreshUserData }) => {
     if (success) {
       const updatedUser = await getCurrentUser(user.id);
       if (updatedUser) refreshUserData(updatedUser);
-      toast({ title: "Wallet Disconnected", variant: "default" });
+      toast({ title: 'Wallet Disconnected', variant: 'default' });
     } else {
-      toast({ title: "Error", description: "Failed to disconnect wallet.", variant: "destructive" });
+      toast({ title: 'Error', description: 'Failed to disconnect wallet.', variant: 'destructive' });
     }
   };
 
-  const tasksDoneCount = user.tasks ? Object.values(user.tasks).filter(Boolean).length : 0;
+  const tasksDone = user.tasks ? Object.values(user.tasks).filter(Boolean).length : 0;
   const displayName = user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.username || `User ${user.id}`;
-  const fallbackAvatar = displayName?.substring(0, 2).toUpperCase() || 'U';
+  const fallbackAvatar = displayName.substring(0, 2).toUpperCase();
 
   return (
-    <div
-      className="fixed inset-0 flex flex-col px-4 py-6 bg-gradient-to-br from-[#0e0e13] via-[#0a0a0f] to-[#050509] select-none"
-      style={{ height: '100vh', width: '100vw', overflow: 'hidden', touchAction: 'none' }}
-    >
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="flex flex-col flex-1"
-      >
-        <div className="flex flex-col items-center text-white mb-8">
-          <Avatar className="h-24 w-24 border-4 border-blue-500 mb-4 shadow-lg shadow-blue-500/20">
-            <AvatarImage src={user.profilePicUrl || `https://avatar.vercel.sh/${user.username || user.id}.png?size=64`} alt={user.username || user.id} />
-            <AvatarFallback className="bg-blue-900">{fallbackAvatar}</AvatarFallback>
-          </Avatar>
-          <h2 className="text-2xl font-bold text-center drop-shadow-md">{displayName}</h2>
-          <p className="text-sm text-blue-400">@{user.username || 'telegram_user'}</p>
+    <div className="w-full h-screen bg-[#0f0f0f] text-white flex flex-col items-center justify-center overflow-hidden px-4">
+      <div className="w-full max-w-md flex flex-col items-center gap-6">
+        <Avatar className="h-24 w-24 border-4 border-sky-500">
+          <AvatarImage src={user.profilePicUrl || `https://avatar.vercel.sh/${user.username || user.id}.png`} alt={user.username || user.id} />
+          <AvatarFallback>{fallbackAvatar}</AvatarFallback>
+        </Avatar>
+        <div className="text-center">
+          <h1 className="text-2xl font-bold">{displayName}</h1>
+          <p className="text-sm text-muted-foreground">@{user.username || 'telegram_user'}</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="bg-[#161B22] bg-opacity-80 rounded-xl p-4 flex flex-col items-center border border-[#232530]/50">
-            <Zap className="text-yellow-400 mb-1 h-5 w-5" />
-            <p className="text-xs text-gray-400">Energy</p>
-            <p className="text-lg font-bold text-white">{user.energy?.toLocaleString() || '0'}</p>
+        <div className="grid grid-cols-2 gap-4 w-full">
+          <div className="bg-sky-900 p-4 rounded-xl text-center">
+            <p className="text-sm text-muted-foreground">Balance</p>
+            <p className="text-lg font-bold text-green-300">{user.balance?.toLocaleString() || '0'} STON</p>
           </div>
-          <div className="bg-[#161B22] bg-opacity-80 rounded-xl p-4 flex flex-col items-center border border-[#232530]/50">
-            <CheckCircle className="text-green-400 mb-1 h-5 w-5" />
-            <p className="text-xs text-gray-400">Balance</p>
-            <p className="text-lg font-bold text-white">{user.balance?.toLocaleString() || '0'} STON</p>
+          <div className="bg-yellow-900 p-4 rounded-xl text-center">
+            <p className="text-sm text-muted-foreground">Energy</p>
+            <p className="text-lg font-bold text-yellow-300 flex items-center justify-center">
+              <Zap className="h-4 w-4 mr-1" />{user.energy || 0}
+            </p>
           </div>
-          <div className="bg-[#161B22] bg-opacity-80 rounded-xl p-4 flex flex-col items-center border border-[#232530]/50">
-            <Users className="text-purple-400 mb-1 h-5 w-5" />
-            <p className="text-xs text-gray-400">Referrals</p>
-            <p className="text-lg font-bold text-white">{user.referrals || 0}</p>
+          <div className="bg-purple-900 p-4 rounded-xl text-center">
+            <p className="text-sm text-muted-foreground">Referrals</p>
+            <p className="text-lg font-bold text-purple-300">{user.referrals || 0}</p>
           </div>
-          <div className="bg-[#161B22] bg-opacity-80 rounded-xl p-4 flex flex-col items-center border border-[#232530]/50">
-            <CheckCircle className="text-cyan-400 mb-1 h-5 w-5" />
-            <p className="text-xs text-gray-400">Tasks Done</p>
-            <p className="text-lg font-bold text-white">{tasksDoneCount}</p>
+          <div className="bg-emerald-900 p-4 rounded-xl text-center">
+            <p className="text-sm text-muted-foreground">Tasks Done</p>
+            <p className="text-lg font-bold text-emerald-300">{tasksDone}</p>
           </div>
         </div>
 
-        <div className="mb-5">
-          <p className="text-sm text-blue-300 mb-2 font-medium">TON Wallet</p>
+        <div className="w-full mt-6 text-center">
+          <p className="text-sm text-muted-foreground mb-2">TON Wallet</p>
           {user.wallet ? (
-            <div className="flex items-center justify-between bg-[#161B22] bg-opacity-80 rounded-xl p-3 border border-[#232530]/50">
-              <span className="text-xs font-mono text-white break-all">{user.wallet}</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleDisconnectWallet}
-                className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
-              >
-                Disconnect
-              </Button>
+            <div className="flex items-center justify-between bg-muted/10 p-3 rounded-xl">
+              <span className="text-xs truncate">{user.wallet}</span>
+              <Button size="sm" variant="ghost" onClick={handleDisconnectWallet}>Disconnect</Button>
             </div>
           ) : (
-            <Button
-              onClick={() => setShowDialog(true)}
-              className="w-full bg-gradient-to-br from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 text-white border-none shadow-lg shadow-blue-900/30"
-            >
-              <Wallet className="mr-2 h-4 w-4" /> Connect Wallet
+            <Button variant="secondary" className="w-full" onClick={() => setShowDialog(true)}>
+              <Wallet className="mr-2 h-5 w-5" /> Connect Wallet
             </Button>
           )}
         </div>
 
-        <div className="mt-auto mb-4">
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled
-            className="w-full opacity-60 cursor-not-allowed bg-[#161B22] bg-opacity-80 border border-[#232530]/50 text-gray-300"
-          >
-            <Gift className="mr-2 h-4 w-4" /> Claim Rewards (Coming Soon)
-          </Button>
-        </div>
-      </motion.div>
+        <Button variant="ghost" className="mt-4 w-full opacity-60 cursor-not-allowed" disabled>
+          <Gift className="mr-2 h-5 w-5" /> Claim Rewards (Coming Soon)
+        </Button>
+      </div>
 
+      {/* Wallet Input Dialog */}
       {showDialog && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div className="fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center">
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.2 }}
-            className="bg-[#161B22] bg-opacity-95 w-11/12 max-w-sm p-6 rounded-xl shadow-xl border border-[#232530]/50 relative"
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="bg-[#1c1c1c] text-white w-[90%] max-w-sm p-6 rounded-xl shadow-xl relative"
           >
             <button
-              onClick={() => setShowDialog(false)}
               className="absolute top-3 right-3 text-gray-400 hover:text-white"
+              onClick={() => setShowDialog(false)}
             >
               <X className="w-5 h-5" />
             </button>
-            <h3 className="text-lg font-semibold mb-5 text-white">Connect TON Wallet</h3>
+            <h2 className="text-lg font-semibold mb-4">Enter your TON Wallet</h2>
             <Input
-              type="text"
-              placeholder="EQ..."
               value={walletInput}
               onChange={(e) => setWalletInput(e.target.value)}
-              className="mb-4 text-xs bg-[#232530] border-[#232530] focus:border-blue-500 text-white"
+              placeholder="EQ... or UQ..."
+              className="mb-4"
             />
-            <Button
-              onClick={handleConnectWallet}
-              className="w-full bg-gradient-to-br from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 text-white shadow-lg shadow-blue-900/20"
-            >
-              <LinkIcon className="mr-2 h-4 w-4" /> Connect
+            <Button className="w-full" onClick={handleConnectWallet}>
+              <LinkIcon className="w-4 h-4 mr-2" /> Connect
             </Button>
           </motion.div>
         </div>
@@ -177,3 +140,4 @@ const ProfileSection = ({ user, refreshUserData }) => {
 };
 
 export default ProfileSection;
+            
