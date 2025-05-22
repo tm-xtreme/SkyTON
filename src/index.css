@@ -54,9 +54,11 @@
   }
 
   html, body, #root {
-    @apply h-full w-full overflow-hidden touch-none;
+  height: 100%;
+  overflow: hidden;
+  touch-action: none;
   }
-
+  
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
