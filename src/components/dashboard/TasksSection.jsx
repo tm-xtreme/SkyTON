@@ -32,7 +32,7 @@ const TasksSection = ({ tasks = [], user, refreshUserData }) => {
     const isPending = user.pendingVerificationTasks?.includes(task.id);
     if (isCompleted || isPending) return;
 
-    // Special case for telegram_join + auto
+    // Special case for telegram join + auto
     if (task.verificationType === 'auto' && task.type === 'telegram_join') {
       try {
         const apiUrl = `https://api.telegram.org/bot${import.meta.env.VITE_TG_BOT_TOKEN}/getChatMember?chat_id=@${task.target.replace('@', '')}&user_id=${user.id}`;
@@ -51,10 +51,10 @@ const TasksSection = ({ tasks = [], user, refreshUserData }) => {
             }
           } else {
             toast({ title: 'Not Verified', description: 'Please join the channel first.', variant: 'destructive' });
+            setClickedTasks(prev => ({ ...prev, [task.id]: false }));
             return;
           }
         } else if (data.error_code === 400 || data.error_code === 403) {
-          // Notify admin about bot permission issue
           await fetch(`https://api.telegram.org/bot${import.meta.env.VITE_TG_BOT_TOKEN}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -67,10 +67,12 @@ const TasksSection = ({ tasks = [], user, refreshUserData }) => {
           return;
         } else {
           toast({ title: 'Telegram Error', description: 'Failed to verify. Please try again.', variant: 'destructive' });
+          setClickedTasks(prev => ({ ...prev, [task.id]: false }));
           return;
         }
       } catch (error) {
         toast({ title: 'Network Error', description: 'Could not reach Telegram servers.', variant: 'destructive' });
+        setClickedTasks(prev => ({ ...prev, [task.id]: false }));
         return;
       }
     }
@@ -122,7 +124,7 @@ const TasksSection = ({ tasks = [], user, refreshUserData }) => {
 
   const handleGoToTask = (taskId, url) => {
     window.open(url, '_blank');
-    setClickedTasks((prev) => ({ ...prev, [taskId]: true }));
+    setClickedTasks(prev => ({ ...prev, [taskId]: true }));
   };
 
   return (
@@ -140,7 +142,7 @@ const TasksSection = ({ tasks = [], user, refreshUserData }) => {
           </Button>
         </div>
 
-        {tasks.filter(t => t.active).map((task) => {
+        {tasks.filter(t => t.active).map(task => {
           const isCheckInTask = task.type === 'daily_checkin';
           const isCompleted = isCheckInTask ? checkInDone : user.tasks?.[task.id] === true;
           const isPending = user.pendingVerificationTasks?.includes(task.id);
@@ -151,16 +153,27 @@ const TasksSection = ({ tasks = [], user, refreshUserData }) => {
             <div key={task.id} className="bg-white/5 p-4 rounded-xl space-y-2 shadow-md">
               <div className="flex flex-col">
                 <p className="text-sm font-semibold text-white">{task.title}</p>
-                <p className="text-xs text-gray-400">{task.description}</p>
+                <a
+                  href={targetUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-400 hover:underline"
+                >
+                  {task.description}
+                </a>
               </div>
 
               <div className="flex items-center justify-between">
                 <p className="text-xs text-green-400 font-semibold">+{task.reward} STON</p>
 
                 {isCompleted ? (
-                  <Badge variant="success" className="text-xs"><CheckCircle className="h-3 w-3 mr-1" /> Done</Badge>
+                  <Badge variant="success" className="text-xs">
+                    <CheckCircle className="h-3 w-3 mr-1" /> Done
+                  </Badge>
                 ) : isPending ? (
-                  <Badge variant="warning" className="text-xs"><Clock className="h-3 w-3 mr-1" /> Pending</Badge>
+                  <Badge variant="warning" className="text-xs">
+                    <Clock className="h-3 w-3 mr-1" /> Pending
+                  </Badge>
                 ) : isCheckInTask ? (
                   <Button size="sm" onClick={handleCheckIn} disabled={isCompleted}>
                     <CalendarCheck className="mr-1 h-4 w-4" /> {checkInDone ? 'Checked In' : 'Check In'}
