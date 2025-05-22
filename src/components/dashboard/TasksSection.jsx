@@ -32,19 +32,64 @@ const TasksSection = ({ tasks = [], user, refreshUserData }) => {
     const isPending = user.pendingVerificationTasks?.includes(task.id);
     if (isCompleted || isPending) return;
 
+    // Special case for telegram join + auto
+    if (task.verificationType === 'auto' && task.type === 'telegram_join') {
+      try {
+        const res = await fetch(
+          `https://api.telegram.org/bot${import.meta.env.VITE_TG_BOT_TOKEN}/getChatMember?chat_id=@${task.target.replace('@', '')}&user_id=${user.id}`
+        );
+        const data = await res.json();
+
+        if (data.ok) {
+          const status = data.result.status;
+          if (['member', 'administrator', 'creator'].includes(status)) {
+            const verified = await completeTask(user.id, task.id);
+            if (verified) {
+              const updatedUser = await getCurrentUser(user.id);
+              if (updatedUser) refreshUserData(updatedUser);
+              toast({ title: 'Joined Verified', description: `+${task.reward} STON`, variant: 'success' });
+              return;
+            }
+          } else {
+            toast({ title: 'Not Verified', description: 'Please join the channel first.', variant: 'destructive' });
+            return;
+          }
+        } else if (data.error_code === 403) {
+          // Notify admin
+          fetch(`https://api.telegram.org/bot${import.meta.env.VITE_TG_BOT_TOKEN}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: '5063003944',
+              text: `Bot is not admin in @${task.target}. Please fix permissions.`
+            })
+          });
+          toast({ title: 'Bot Issue', description: 'Verification failed. Please contact support.', variant: 'destructive' });
+          return;
+        } else {
+          toast({ title: 'Telegram Error', description: 'Could not verify Telegram join.', variant: 'destructive' });
+          return;
+        }
+      } catch (err) {
+        toast({ title: 'Error', description: 'Network error. Try again.', variant: 'destructive' });
+        return;
+      }
+    }
+
+    // Normal flow for auto/manual
     let success = false;
     let toastMessage = {};
 
     if (task.verificationType === 'auto') {
       success = await completeTask(user.id, task.id);
       toastMessage = success
-        ? { title: "Task Verified!", description: `You earned ${task.reward} STON!`, variant: "success" }
-        : { title: "Verification Failed", description: "Could not verify task completion.", variant: "destructive" };
+        ? { title: 'Task Verified!', description: `You earned ${task.reward} STON!`, variant: 'success' }
+        : { title: 'Verification Failed', description: 'Could not verify task completion.', variant: 'destructive' };
     } else {
       success = await requestManualVerification(user.id, task.id);
       toastMessage = success
-        ? { title: "Verification Requested", description: `\"${task.title}\" sent for review.`, variant: "default" }
-        : { title: "Request Failed", description: "Try again later.", variant: "destructive" };
+        ? { title: 'Verification Requested', description: `\"${task.title}\" sent for review.`, variant: 'default' }
+        : { title: 'Request Failed', description: 'Try again later.', variant: 'destructive' };
     }
 
     if (success) {
@@ -61,17 +106,9 @@ const TasksSection = ({ tasks = [], user, refreshUserData }) => {
     if (result.success) {
       const updatedUser = await getCurrentUser(user.id);
       if (updatedUser) refreshUserData(updatedUser);
-      toast({
-        title: "Daily Check-in Successful!",
-        description: `You earned ${result.reward} STON!`,
-        variant: "success"
-      });
+      toast({ title: 'Daily Check-in Successful!', description: `+${result.reward} STON`, variant: 'success' });
     } else {
-      toast({
-        title: "Check-in Failed",
-        description: result.message || "Try again later.",
-        variant: "default"
-      });
+      toast({ title: 'Check-in Failed', description: result.message || 'Try again later.', variant: 'default' });
     }
   };
 
@@ -90,8 +127,10 @@ const TasksSection = ({ tasks = [], user, refreshUserData }) => {
   };
 
   return (
-    <motion.div variants={itemVariants} className="w-full h-[100dvh] text-white px-4 pb-28 pt-6 bg-[#0f0f0f] overflow-y-auto">
+    <motion.div variants={itemVariants} className="w-full min-h-[100dvh] text-white px-4 pb-28 pt-6 bg-[#0f0f0f] overflow-y-auto">
       <div className="max-w-md mx-auto space-y-5">
+        <h2 className="text-center text-lg font-bold text-white mb-2">Available Tasks</h2>
+
         <div className="bg-gradient-to-r from-sky-700 to-sky-900 p-4 rounded-xl flex items-center justify-between shadow">
           <div>
             <p className="text-sm text-white font-semibold">Play Game</p>
@@ -104,16 +143,9 @@ const TasksSection = ({ tasks = [], user, refreshUserData }) => {
 
         {tasks.filter(t => t.active).map((task) => {
           const isCheckInTask = task.type === 'daily_checkin';
-          const isCompleted = isCheckInTask
-            ? checkInDone
-            : user.tasks?.[task.id] === true;
+          const isCompleted = isCheckInTask ? checkInDone : user.tasks?.[task.id] === true;
           const isPending = user.pendingVerificationTasks?.includes(task.id);
-          const isDisabled = isCheckInTask ? checkInDone : (isCompleted || isPending);
-
-          const targetUrl = task.type.includes('telegram')
-            ? `https://t.me/${task.target.replace('@', '')}`
-            : task.target;
-
+          const targetUrl = task.type.includes('telegram') ? `https://t.me/${task.target.replace('@', '')}` : task.target;
           const hasClicked = clickedTasks[task.id];
 
           return (
@@ -127,40 +159,23 @@ const TasksSection = ({ tasks = [], user, refreshUserData }) => {
                 <p className="text-xs text-green-400 font-semibold">+{task.reward} STON</p>
 
                 {isCompleted ? (
-                  <Badge variant="success" className="text-xs">
-                    <CheckCircle className="h-3 w-3 mr-1" /> Done
-                  </Badge>
+                  <Badge variant="success" className="text-xs"> <CheckCircle className="h-3 w-3 mr-1" /> Done </Badge>
                 ) : isPending ? (
-                  <Badge variant="warning" className="text-xs">
-                    <Clock className="h-3 w-3 mr-1" /> Pending
-                  </Badge>
+                  <Badge variant="warning" className="text-xs"> <Clock className="h-3 w-3 mr-1" /> Pending </Badge>
                 ) : isCheckInTask ? (
-                  <Button size="sm" onClick={handleCheckIn} disabled={isDisabled}>
-                    <CalendarCheck className="mr-1 h-4 w-4" /> {checkInDone ? "Checked In" : "Check In"}
-                  </Button>
+                  <Button size="sm" onClick={handleCheckIn} disabled={isCompleted}> <CalendarCheck className="mr-1 h-4 w-4" /> {checkInDone ? 'Checked In' : 'Check In'} </Button>
                 ) : task.type === 'referral' ? (
-                  <Badge variant="outline">Via Invites</Badge>
+                  <Badge variant="outline" className="text-white border-gray-300">Via Invites</Badge>
                 ) : !hasClicked ? (
-                  <Button
-                    size="sm"
-                    onClick={() => handleGoToTask(task.id, targetUrl)}
-                  >
+                  <Button size="sm" onClick={() => handleGoToTask(task.id, targetUrl)}>
                     Go <ArrowRight className="ml-1 h-4 w-4" />
                   </Button>
                 ) : (
-                  <Button
-                    size="sm"
-                    onClick={() => handleVerificationClick(task)}
-                    disabled={isDisabled}
-                  >
+                  <Button size="sm" onClick={() => handleVerificationClick(task)}>
                     {task.verificationType === 'auto' ? (
-                      <>
-                        <CheckCircle className="mr-1 h-4 w-4" /> Verify
-                      </>
+                      <><CheckCircle className="mr-1 h-4 w-4" /> Verify</>
                     ) : (
-                      <>
-                        <HelpCircle className="mr-1 h-4 w-4" /> Request
-                      </>
+                      <><HelpCircle className="mr-1 h-4 w-4" /> Request</>
                     )}
                   </Button>
                 )}
