@@ -187,7 +187,7 @@ function App() {
 
   return (
     <UserContext.Provider value={{ user: currentUser, setUser: setCurrentUser }}>
-      <div className="min-h-screen h-[100dvh] flex flex-col bg-background dark:bg-gray-900 overflow-hidden">
+      <div className="min-h-screen flex flex-col bg-background dark:bg-gray-900 overflow-y-auto">
         <main className="flex-grow">
           <AnimatePresence mode="wait">
             <AppContent
