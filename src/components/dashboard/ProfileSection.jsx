@@ -56,7 +56,7 @@ const ProfileSection = ({ user, refreshUserData }) => {
   const fallbackAvatar = displayName.substring(0, 2).toUpperCase();
 
   return (
-    <div className="w-full h-[100dvh] bg-[#0f0f0f] text-white flex flex-col items-center justify-center px-4 overflow-hidden">
+    <div className="w-full h-[100dvh] bg-[#0f0f0f] text-white flex flex-col items-center justify-center px-4 overflow-y-auto">
       <div className="w-full max-w-md flex flex-col items-center gap-6">
         <Avatar className="h-24 w-24 border-4 border-sky-500">
           <AvatarImage src={user.profilePicUrl || `https://avatar.vercel.sh/${user.username || user.id}.png`} alt={user.username || user.id} />
