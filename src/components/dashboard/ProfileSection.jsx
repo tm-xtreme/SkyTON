@@ -56,43 +56,44 @@ const ProfileSection = ({ user, refreshUserData }) => {
   const fallbackAvatar = displayName.substring(0, 2).toUpperCase();
 
   return (
-    <div className="w-full h-screen bg-[#0f0f0f] text-white flex flex-col items-center justify-center overflow-hidden px-4">
+    <div className="w-full h-[100dvh] bg-[#0f0f0f] text-white flex flex-col items-center justify-center px-4 overflow-hidden">
       <div className="w-full max-w-md flex flex-col items-center gap-6">
         <Avatar className="h-24 w-24 border-4 border-sky-500">
           <AvatarImage src={user.profilePicUrl || `https://avatar.vercel.sh/${user.username || user.id}.png`} alt={user.username || user.id} />
           <AvatarFallback>{fallbackAvatar}</AvatarFallback>
         </Avatar>
+
         <div className="text-center">
-          <h1 className="text-2xl font-bold">{displayName}</h1>
-          <p className="text-sm text-muted-foreground">@{user.username || 'telegram_user'}</p>
+          <h1 className="text-2xl font-bold text-white">{displayName}</h1>
+          <p className="text-sm text-gray-400">@{user.username || 'telegram_user'}</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 w-full">
+        <div className="grid grid-cols-2 gap-4 w-full text-sm">
           <div className="bg-sky-900 p-4 rounded-xl text-center">
-            <p className="text-sm text-muted-foreground">Balance</p>
+            <p className="text-gray-300">Balance</p>
             <p className="text-lg font-bold text-green-300">{user.balance?.toLocaleString() || '0'} STON</p>
           </div>
           <div className="bg-yellow-900 p-4 rounded-xl text-center">
-            <p className="text-sm text-muted-foreground">Energy</p>
+            <p className="text-gray-300">Energy</p>
             <p className="text-lg font-bold text-yellow-300 flex items-center justify-center">
               <Zap className="h-4 w-4 mr-1" />{user.energy || 0}
             </p>
           </div>
           <div className="bg-purple-900 p-4 rounded-xl text-center">
-            <p className="text-sm text-muted-foreground">Referrals</p>
+            <p className="text-gray-300">Referrals</p>
             <p className="text-lg font-bold text-purple-300">{user.referrals || 0}</p>
           </div>
           <div className="bg-emerald-900 p-4 rounded-xl text-center">
-            <p className="text-sm text-muted-foreground">Tasks Done</p>
+            <p className="text-gray-300">Tasks Done</p>
             <p className="text-lg font-bold text-emerald-300">{tasksDone}</p>
           </div>
         </div>
 
         <div className="w-full mt-6 text-center">
-          <p className="text-sm text-muted-foreground mb-2">TON Wallet</p>
+          <p className="text-sm text-gray-400 mb-2">TON Wallet</p>
           {user.wallet ? (
-            <div className="flex items-center justify-between bg-muted/10 p-3 rounded-xl">
-              <span className="text-xs truncate">{user.wallet}</span>
+            <div className="flex items-center justify-between bg-white/5 p-3 rounded-xl text-sm">
+              <span className="truncate">{user.wallet}</span>
               <Button size="sm" variant="ghost" onClick={handleDisconnectWallet}>Disconnect</Button>
             </div>
           ) : (
@@ -109,7 +110,7 @@ const ProfileSection = ({ user, refreshUserData }) => {
 
       {/* Wallet Input Dialog */}
       {showDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center">
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -127,7 +128,7 @@ const ProfileSection = ({ user, refreshUserData }) => {
               value={walletInput}
               onChange={(e) => setWalletInput(e.target.value)}
               placeholder="EQ... or UQ..."
-              className="mb-4"
+              className="mb-4 text-white placeholder:text-gray-400 bg-[#0f0f0f] border border-gray-700"
             />
             <Button className="w-full" onClick={handleConnectWallet}>
               <LinkIcon className="w-4 h-4 mr-2" /> Connect
