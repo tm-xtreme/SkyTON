@@ -70,7 +70,7 @@ function AppContent({
                   </div>
                 </>
               ) : (
-                <div className="min-h-screen flex flex-col items-center justify-center bg-background dark:bg-gray-900 text-primary p-4">
+                <div className="min-h-screen flex flex-col bg-background dark:bg-gray-900 overflow-y-auto text-primary p-4">
                   <h2 className="text-xl font-semibold mb-4">Admin Login</h2>
                   <input
                     type="password"
