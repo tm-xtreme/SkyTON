@@ -6,7 +6,6 @@ import ReferralSection from '@/components/dashboard/ReferralSection';
 import LeaderboardSection from '@/components/dashboard/LeaderboardSection';
 import { getAllTasks } from '@/data';
 import { UserContext } from '@/App';
-import { Loader2 } from 'lucide-react';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -21,7 +20,6 @@ const containerVariants = {
 const DashboardPage = ({ activeView }) => {
   const { user, setUser } = useContext(UserContext);
   const [tasks, setTasks] = useState([]);
-  const [leaderboard, setLeaderboard] = useState([]);
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
 
   useEffect(() => {
@@ -39,27 +37,6 @@ const DashboardPage = ({ activeView }) => {
     setUser(updatedUser);
   };
 
-  const renderSection = () => {
-    switch (activeView) {
-      case 'home':
-        return <ProfileSection user={user} refreshUserData={refreshUserData} />;
-      case 'tasks':
-        return isLoadingTasks ? (
-          <div className="flex justify-center items-center h-full py-10">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        ) : (
-          <TasksSection tasks={tasks} user={user} refreshUserData={refreshUserData} />
-        );
-      case 'invite':
-        return <ReferralSection user={user} />;
-      case 'leaders':
-        return <LeaderboardSection currentUserTelegramId={user?.id} />;
-      default:
-        return <ProfileSection user={user} refreshUserData={refreshUserData} />;
-    }
-  };
-
   return (
     <motion.div
       className="w-full min-h-screen bg-background dark:bg-gray-900 overflow-y-auto"
@@ -67,7 +44,17 @@ const DashboardPage = ({ activeView }) => {
       initial="hidden"
       animate="visible"
     >
-      {renderSection()}
+      {activeView === 'home' && <ProfileSection user={user} refreshUserData={refreshUserData} />}
+      {activeView === 'invite' && <ReferralSection user={user} />}
+      {activeView === 'leaders' && <LeaderboardSection currentUserTelegramId={user?.id} />}
+      {activeView === 'tasks' && (
+        <TasksSection
+          user={user}
+          tasks={tasks}
+          isLoading={isLoadingTasks}
+          refreshUserData={refreshUserData}
+        />
+      )}
     </motion.div>
   );
 };
