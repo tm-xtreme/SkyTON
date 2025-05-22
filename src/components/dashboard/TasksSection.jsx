@@ -1,9 +1,5 @@
-// TasksSection.jsx
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import {
-  Card, CardContent, CardDescription, CardHeader, CardTitle
-} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
@@ -15,7 +11,7 @@ import {
   isCheckInDoneToday
 } from '@/data';
 import {
-  CheckCircle, CalendarCheck, HelpCircle, Clock, Gamepad2
+  CheckCircle, CalendarCheck, HelpCircle, Clock, Gamepad2, ArrowRight
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -27,6 +23,7 @@ const itemVariants = {
 const TasksSection = ({ tasks = [], user, refreshUserData }) => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [clickedTasks, setClickedTasks] = useState({});
 
   const handleVerificationClick = async (task) => {
     if (!user?.id || !task?.id) return;
@@ -60,7 +57,6 @@ const TasksSection = ({ tasks = [], user, refreshUserData }) => {
 
   const handleCheckIn = async () => {
     if (!user?.id) return;
-
     const result = await performCheckIn(user.id);
     if (result.success) {
       const updatedUser = await getCurrentUser(user.id);
@@ -88,88 +84,91 @@ const TasksSection = ({ tasks = [], user, refreshUserData }) => {
     }
   };
 
+  const handleGoToTask = (taskId, url) => {
+    window.open(url, '_blank');
+    setClickedTasks((prev) => ({ ...prev, [taskId]: true }));
+  };
+
   return (
-    <motion.div variants={itemVariants}>
-      <Card>
-        <CardHeader>
-          <CardTitle>💎 Earn STON</CardTitle>
-          <CardDescription>Complete tasks to earn more STON tokens.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg">
-              <div className="flex-1 mr-2">
-                <p className="font-semibold">Play Game</p>
-                <p className="text-xs text-muted-foreground">Play and earn STON by winning points!</p>
+    <motion.div variants={itemVariants} className="w-full h-[100dvh] text-white px-4 pb-28 pt-6 bg-[#0f0f0f]">
+      <div className="max-w-md mx-auto space-y-5">
+        <div className="bg-gradient-to-r from-sky-700 to-sky-900 p-4 rounded-xl flex items-center justify-between shadow">
+          <div>
+            <p className="text-sm text-white font-semibold">Play Game</p>
+            <p className="text-xs text-gray-300">Catch STON gems and earn rewards!</p>
+          </div>
+          <Button size="sm" onClick={handlePlayGame}>
+            <Gamepad2 className="mr-1 w-4 h-4" /> Play
+          </Button>
+        </div>
+
+        {tasks.filter(t => t.active).map((task) => {
+          const isCheckInTask = task.type === 'daily_checkin';
+          const isCompleted = isCheckInTask
+            ? checkInDone
+            : user.tasks?.[task.id] === true;
+          const isPending = user.pendingVerificationTasks?.includes(task.id);
+          const isDisabled = isCheckInTask ? checkInDone : (isCompleted || isPending);
+
+          const targetUrl = task.type.includes('telegram')
+            ? `https://t.me/${task.target.replace('@', '')}`
+            : task.target;
+
+          const hasClicked = clickedTasks[task.id];
+
+          return (
+            <div key={task.id} className="bg-white/5 p-4 rounded-xl space-y-2 shadow-md">
+              <div className="flex flex-col">
+                <p className="text-sm font-semibold text-white">{task.title}</p>
+                <p className="text-xs text-gray-400">{task.description}</p>
               </div>
-              <div className="flex-shrink-0">
-                <Button size="sm" onClick={handlePlayGame}>
-                  <Gamepad2 className="mr-2 h-4 w-4" /> Play Now
-                </Button>
+
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-green-400 font-semibold">+{task.reward} STON</p>
+
+                {isCompleted ? (
+                  <Badge variant="success" className="text-xs">
+                    <CheckCircle className="h-3 w-3 mr-1" /> Done
+                  </Badge>
+                ) : isPending ? (
+                  <Badge variant="warning" className="text-xs">
+                    <Clock className="h-3 w-3 mr-1" /> Pending
+                  </Badge>
+                ) : isCheckInTask ? (
+                  <Button size="sm" onClick={handleCheckIn} disabled={isDisabled}>
+                    <CalendarCheck className="mr-1 h-4 w-4" /> {checkInDone ? "Checked In" : "Check In"}
+                  </Button>
+                ) : task.type === 'referral' ? (
+                  <Badge variant="outline">Via Invites</Badge>
+                ) : !hasClicked ? (
+                  <Button
+                    size="sm"
+                    onClick={() => handleGoToTask(task.id, targetUrl)}
+                  >
+                    Go <ArrowRight className="ml-1 h-4 w-4" />
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    onClick={() => handleVerificationClick(task)}
+                    disabled={isDisabled}
+                  >
+                    {task.verificationType === 'auto' ? (
+                      <>
+                        <CheckCircle className="mr-1 h-4 w-4" /> Verify
+                      </>
+                    ) : (
+                      <>
+                        <HelpCircle className="mr-1 h-4 w-4" /> Request
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
             </div>
-
-            {tasks.filter(t => t.active).map((task) => {
-              const isCheckInTask = task.type === 'daily_checkin';
-              const isCompleted = isCheckInTask
-                ? checkInDone
-                : user.tasks?.[task.id] === true;
-              const isPending = user.pendingVerificationTasks?.includes(task.id);
-              const isDisabled = isCheckInTask ? checkInDone : (isCompleted || isPending);
-
-              return (
-                <div key={task.id} className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg">
-                  <div className="flex-1 mr-2">
-                    <p className="font-semibold">{task.title} (+{task.reward} STON)</p>
-                    <p className="text-xs text-muted-foreground">{task.description}</p>
-                    {task.target && (
-                      <a
-                        href={task.type.includes('telegram') ? `https://t.me/${task.target.replace('@', '')}` : task.target}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-blue-500 hover:underline"
-                      >
-                        {task.target}
-                      </a>
-                    )}
-                  </div>
-
-                  <div className="flex-shrink-0">
-                    {isCompleted ? (
-                      <Badge variant="success" className="flex items-center gap-1">
-                        <CheckCircle className="h-3 w-3" /> Done
-                      </Badge>
-                    ) : isPending ? (
-                      <Badge variant="warning" className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" /> Pending
-                      </Badge>
-                    ) : isCheckInTask ? (
-                      <Button size="sm" onClick={handleCheckIn} disabled={isDisabled}>
-                        <CalendarCheck className="mr-2 h-4 w-4" /> {checkInDone ? "Checked In" : "Check In"}
-                      </Button>
-                    ) : task.type === 'referral' ? (
-                      <Badge variant="outline">Via Invites</Badge>
-                    ) : (
-                      <Button size="sm" onClick={() => handleVerificationClick(task)} disabled={isDisabled}>
-                        {task.verificationType === 'auto' ? (
-                          <>
-                            <CheckCircle className="mr-2 h-4 w-4" /> Verify
-                          </>
-                        ) : (
-                          <>
-                            <HelpCircle className="mr-2 h-4 w-4" /> Request Verify
-                          </>
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-
-          </div>
-        </CardContent>
-      </Card>
+          );
+        })}
+      </div>
     </motion.div>
   );
 };
