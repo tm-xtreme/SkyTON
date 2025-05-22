@@ -45,7 +45,7 @@ const DashboardPage = ({ activeView }) => {
         return <ProfileSection user={user} refreshUserData={refreshUserData} />;
       case 'tasks':
         return isLoadingTasks ? (
-          <div className="flex justify-center items-center h-full">
+          <div className="flex justify-center items-center h-full py-10">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (
@@ -62,7 +62,7 @@ const DashboardPage = ({ activeView }) => {
 
   return (
     <motion.div
-      className="w-full h-[100dvh] overflow-hidden bg-background dark:bg-gray-900"
+      className="w-full min-h-screen bg-background dark:bg-gray-900 overflow-y-auto"
       variants={containerVariants}
       initial="hidden"
       animate="visible"
