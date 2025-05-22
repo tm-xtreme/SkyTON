@@ -1,19 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Copy } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { generateReferralLink } from '@/data';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 10 },
-  visible: { opacity: 1, y: 0 }
-};
 
 const defaultAvatar = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQB_4gKwn8q2WBPTwnV14Jmh3B5g56SCiGEBA&usqp=CAU";
 
@@ -79,62 +73,60 @@ const ReferralSection = ({ user }) => {
   }, [user.referredUsers, user.invitedBy]);
 
   return (
-    <motion.div variants={itemVariants}>
-      <Card>
-        <CardHeader>
-          <CardTitle>Invite & Earn</CardTitle>
-          <CardDescription>
-            Share your link to invite friends and earn rewards for each referral.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm">Your unique referral link:</p>
-          <div className="flex items-center gap-2 bg-muted p-2 rounded-md">
+    <motion.div className="w-full min-h-[100dvh] text-white px-4 pb-28 pt-6 bg-[#0f0f0f] overflow-y-auto">
+      <div className="max-w-md mx-auto space-y-6">
+        <div className="text-center">
+          <h2 className="text-xl font-bold">Invite & Earn</h2>
+          <p className="text-sm text-muted-foreground">Share your link with friends and earn STON</p>
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-sm">Your Referral Link</p>
+          <div className="flex items-center gap-2 bg-white/5 p-2 rounded-xl">
             <Input
               type="text"
               readOnly
               value={referralLink}
-              className="flex-grow text-xs bg-transparent border-none focus-visible:ring-0"
+              className="flex-grow text-xs bg-transparent border-none text-white"
             />
-            <Button variant="ghost" size="icon" onClick={copyReferralLink} disabled={!referralLink}>
-              <Copy className="h-4 w-4" />
+            <Button size="icon" variant="ghost" onClick={copyReferralLink}>
+              <Copy className="h-4 w-4 text-white" />
             </Button>
           </div>
+        </div>
 
-          <p className="text-sm text-muted-foreground">
-            You have successfully referred <span className="font-bold text-primary">{user.referrals || 0}</span> friends.
-          </p>
+        <div className="bg-sky-900 p-4 rounded-xl text-center shadow">
+          <p className="text-sm text-muted-foreground">Total Referrals</p>
+          <p className="text-lg font-bold text-green-300">{user.referrals || 0}</p>
+        </div>
 
-          {referredUsers.length > 0 && (
-            <div>
-              <p className="text-sm font-medium">Referred Users:</p>
-              <div className="grid grid-cols-2 gap-2">
-                {referredUsers.map((u) => (
-                  <div key={u.id} className="flex items-center space-x-2 bg-secondary p-2 rounded-md">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={u.photo} />
-                      <AvatarFallback>{u.name?.charAt(0) || "U"}</AvatarFallback>
-                    </Avatar>
-                    <span className="text-sm">{u.name}</span>
-                  </div>
-                ))}
-              </div>
+        {referredUsers.length > 0 && (
+          <div>
+            <p className="text-sm font-semibold mb-2">Referred Users</p>
+            <div className="grid grid-cols-2 gap-2">
+              {referredUsers.map((u) => (
+                <div key={u.id} className="flex items-center bg-white/5 p-2 rounded-md space-x-2">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={u.photo} />
+                    <AvatarFallback>{u.name?.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm truncate">{u.name}</span>
+                </div>
+              ))}
             </div>
-          )}
+          </div>
+        )}
 
-          {referrerInfo && (
-            <div className="flex items-center space-x-3 pt-4 border-t pt-2">
-              <Avatar className="h-8 w-8">
-                <AvatarImage src={referrerInfo.photo} />
-                <AvatarFallback>{referrerInfo.name?.charAt(0) || "R"}</AvatarFallback>
-              </Avatar>
-              <span className="text-xs text-muted-foreground italic">
-                Referred by: {referrerInfo.name}
-              </span>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        {referrerInfo && (
+          <div className="flex items-center space-x-3 pt-4 border-t border-white/10 pt-3">
+            <Avatar className="h-8 w-8">
+              <AvatarImage src={referrerInfo.photo} />
+              <AvatarFallback>{referrerInfo.name?.charAt(0)}</AvatarFallback>
+            </Avatar>
+            <span className="text-xs text-muted-foreground italic">Referred by: {referrerInfo.name}</span>
+          </div>
+        )}
+      </div>
     </motion.div>
   );
 };
