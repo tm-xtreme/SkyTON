@@ -99,29 +99,29 @@ const TasksSection = ({ tasks = [], user = {}, refreshUserData, isLoading }) => 
               
               const updatedUser = await getCurrentUser(user.id);
               if (updatedUser) refreshUserData(updatedUser);
-              toast({ title: 'Joined Verified', description: `+${task.reward} STON`, variant: 'success' });
+              toast({ title: 'Joined Verified', description: `+${task.reward} STON`, variant: 'success', className: "bg-[#1a1a1a] text-white" });
               setVerifying(v => ({ ...v, [task.id]: false }));
               return;
             }
           } else {
-            toast({ title: 'Not Verified', description: 'Please join the channel first.', variant: 'destructive' });
+            toast({ title: 'Not Verified', description: 'Please join the channel first.', variant: 'destructive', className: "bg-[#1a1a1a] text-white" });
             setClickedTasks(prev => ({ ...prev, [task.id]: false }));
             setVerifying(v => ({ ...v, [task.id]: false }));
             return;
           }
         } else if (data.error_code === 400 || data.error_code === 403) {
           await sendAdminNotification(`❗ <b>Bot Error</b>\nBot is not an admin or failed to access @${task.target}. Please ensure it's added correctly.`);
-          toast({ title: 'Bot Error', description: 'Bot is not admin in the group/channel. Contact support.', variant: 'destructive' });
+          toast({ title: 'Bot Error', description: 'Something Went Wrong, Please Wait and Try Again Later...', variant: 'destructive', className: "bg-[#1a1a1a] text-white" });
           setVerifying(v => ({ ...v, [task.id]: false }));
           return;
         } else {
-          toast({ title: 'Telegram Error', description: 'Failed to verify. Try again.', variant: 'destructive' });
+          toast({ title: 'Telegram Error', description: 'Failed to verify. Try again.', variant: 'destructive', className: "bg-[#1a1a1a] text-white" });
           setClickedTasks(prev => ({ ...prev, [task.id]: false }));
           setVerifying(v => ({ ...v, [task.id]: false }));
           return;
         }
       } catch (err) {
-        toast({ title: 'Network Error', description: 'Could not reach Telegram servers.', variant: 'destructive' });
+        toast({ title: 'Network Error', description: 'Could not reach Telegram servers.', variant: 'destructive', className: "bg-[#1a1a1a] text-white" });
         setClickedTasks(prev => ({ ...prev, [task.id]: false }));
         setVerifying(v => ({ ...v, [task.id]: false }));
         return;
@@ -153,7 +153,8 @@ const TasksSection = ({ tasks = [], user = {}, refreshUserData, isLoading }) => 
       toast({
         title: success ? 'Verification Requested' : 'Request Failed',
         description: success ? `"${task.title}" sent for review.` : 'Try again later.',
-        variant: success ? 'default' : 'destructive'
+        variant: success ? 'default' : 'destructive',
+        className: "bg-[#1a1a1a] text-white"
       });
     }
 
