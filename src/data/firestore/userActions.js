@@ -100,7 +100,7 @@ export const getUser = async (userId) => {
   }
 };
 
-// Alias for clarity (same as getUser)
+// Alias
 export const getUserById = getUser;
 
 // Mark a task complete and update balance
@@ -138,17 +138,26 @@ export const requestManualVerificationForUser = async (userId, taskId) => {
       const userData = userSnap.data();
       if (userData.tasks?.[taskId]) return false;
       if (userData.pendingVerificationTasks?.includes(taskId)) return true;
-    }
 
-    await updateDoc(userRef, {
-      pendingVerificationTasks: arrayUnion(taskId)
-    });
-    return true;
+      const task = await getTask(taskId);
+      if (!task) return false;
+
+      await updateDoc(userRef, {
+        pendingVerificationTasks: arrayUnion(taskId),
+        [`pendingVerificationDetails.${taskId}`]: {
+          title: task.title,
+          reward: task.reward,
+          target: task.target
+        }
+      });
+      return true;
+    }
   } catch (error) {
     console.error(`Error requesting verification for ${taskId} by ${userId}:`, error);
     return false;
   }
 };
+
 
 // Reject manual verification
 export const rejectManualVerificationForUser = async (userId, taskId) => {
