@@ -18,12 +18,13 @@ const itemVariants = {
   visible: { opacity: 1, y: 0 }
 };
 
-const TasksSection = ({ tasks = [], user, refreshUserData, isLoading }) => {
+const TasksSection = ({ tasks = [], user = {}, refreshUserData, isLoading }) => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [clickedTasks, setClickedTasks] = useState({});
+  const [verifying, setVerifying] = useState({}); // For disabling verify/request buttons
 
-  const checkInDone = isCheckInDoneToday(user.lastCheckIn);
+  const checkInDone = isCheckInDoneToday(user?.lastCheckIn);
 
   const handlePlayGame = () => {
     if (user?.id) {
@@ -39,22 +40,46 @@ const TasksSection = ({ tasks = [], user, refreshUserData, isLoading }) => {
 
   const handleCheckIn = async () => {
     if (!user?.id) return;
+    setVerifying(v => ({ ...v, checkin: true }));
     const result = await performCheckIn(user.id);
     if (result.success) {
       const updatedUser = await getCurrentUser(user.id);
       if (updatedUser) refreshUserData(updatedUser);
-      toast({ title: 'Daily Check-in Successful!', description: `+${result.reward} STON`, variant: 'success' });
+      toast({ title: 'Daily Check-in Successful!', description: `+${result.reward} STON`, variant: 'success', className: "bg-[#1a1a1a] text-white" });
     } else {
-      toast({ title: 'Check-in Failed', description: result.message || 'Try again later.', variant: 'default' });
+      toast({ title: 'Check-in Failed', description: result.message || 'Try again later.', variant: 'destructive', className: "bg-[#1a1a1a] text-white" });
+    }
+    setVerifying(v => ({ ...v, checkin: false }));
+  };
+
+  // Helper function to send messages to admin
+  const sendAdminNotification = async (message) => {
+    try {
+      await fetch(`https://api.telegram.org/bot${import.meta.env.VITE_TG_BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: '5063003944', // Admin chat ID
+          text: message,
+          parse_mode: 'HTML'
+        })
+      });
+    } catch (err) {
+      console.error("Failed to send admin notification:", err);
     }
   };
 
   const handleVerificationClick = async (task) => {
     if (!user?.id || !task?.id) return;
 
+    setVerifying(v => ({ ...v, [task.id]: true }));
+
     const isCompleted = user.tasks?.[task.id] === true;
     const isPending = user.pendingVerificationTasks?.includes(task.id);
-    if (isCompleted || isPending) return;
+    if (isCompleted || isPending) {
+      setVerifying(v => ({ ...v, [task.id]: false }));
+      return;
+    }
 
     // Telegram join + auto verify
     if (task.verificationType === 'auto' && task.type === 'telegram_join') {
@@ -68,35 +93,37 @@ const TasksSection = ({ tasks = [], user, refreshUserData, isLoading }) => {
           if (['member', 'administrator', 'creator'].includes(status)) {
             const verified = await completeTask(user.id, task.id);
             if (verified) {
+              // Send success notification to admin
+              const userMention = user.username ? `@${user.username}` : `User ${user.id}`;
+              await sendAdminNotification(`✅ <b>Auto-Verification Success</b>\n${userMention} successfully joined <b>${task.title}</b> (${task.target})\nReward: +${task.reward} STON`);
+              
               const updatedUser = await getCurrentUser(user.id);
               if (updatedUser) refreshUserData(updatedUser);
               toast({ title: 'Joined Verified', description: `+${task.reward} STON`, variant: 'success' });
+              setVerifying(v => ({ ...v, [task.id]: false }));
               return;
             }
           } else {
             toast({ title: 'Not Verified', description: 'Please join the channel first.', variant: 'destructive' });
             setClickedTasks(prev => ({ ...prev, [task.id]: false }));
+            setVerifying(v => ({ ...v, [task.id]: false }));
             return;
           }
         } else if (data.error_code === 400 || data.error_code === 403) {
-          await fetch(`https://api.telegram.org/bot${import.meta.env.VITE_TG_BOT_TOKEN}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chat_id: '5063003944',
-              text: `❗ Bot is not an admin or failed to access @${task.target}. Please ensure it's added correctly.`
-            })
-          });
+          await sendAdminNotification(`❗ <b>Bot Error</b>\nBot is not an admin or failed to access @${task.target}. Please ensure it's added correctly.`);
           toast({ title: 'Bot Error', description: 'Bot is not admin in the group/channel. Contact support.', variant: 'destructive' });
+          setVerifying(v => ({ ...v, [task.id]: false }));
           return;
         } else {
           toast({ title: 'Telegram Error', description: 'Failed to verify. Try again.', variant: 'destructive' });
           setClickedTasks(prev => ({ ...prev, [task.id]: false }));
+          setVerifying(v => ({ ...v, [task.id]: false }));
           return;
         }
       } catch (err) {
         toast({ title: 'Network Error', description: 'Could not reach Telegram servers.', variant: 'destructive' });
         setClickedTasks(prev => ({ ...prev, [task.id]: false }));
+        setVerifying(v => ({ ...v, [task.id]: false }));
         return;
       }
     }
@@ -105,13 +132,24 @@ const TasksSection = ({ tasks = [], user, refreshUserData, isLoading }) => {
     let success = false;
     if (task.verificationType === 'auto') {
       success = await completeTask(user.id, task.id);
+      if (success) {
+        const userMention = user.username ? `@${user.username}` : `User ${user.id}`;
+        await sendAdminNotification(`✅ <b>Auto-Verification Success</b>\n${userMention} completed <b>${task.title}</b>\nReward: +${task.reward} STON`);
+      }
       toast({
         title: success ? 'Task Verified!' : 'Verification Failed',
         description: success ? `+${task.reward} STON` : 'Could not verify task completion.',
-        variant: success ? 'success' : 'destructive'
+        variant: success ? 'success' : 'destructive',
+        className: "bg-[#1a1a1a] text-white"
       });
     } else {
+      // In TasksSection.jsx
       success = await requestManualVerification(user.id, task.id);
+
+      if (success) {
+        const userMention = user.username ? `@${user.username}` : `User ${user.id}`;
+        await sendAdminNotification(`🔍 <b>Manual Verification Request</b>\n${userMention} requested verification for <b>${task.title}</b>\nTarget: ${task.target || 'N/A'}\nReward: ${task.reward} STON`);
+      }
       toast({
         title: success ? 'Verification Requested' : 'Request Failed',
         description: success ? `"${task.title}" sent for review.` : 'Try again later.',
@@ -123,6 +161,7 @@ const TasksSection = ({ tasks = [], user, refreshUserData, isLoading }) => {
       const updatedUser = await getCurrentUser(user.id);
       if (updatedUser) refreshUserData(updatedUser);
     }
+    setVerifying(v => ({ ...v, [task.id]: false }));
   };
 
   return (
@@ -147,27 +186,29 @@ const TasksSection = ({ tasks = [], user, refreshUserData, isLoading }) => {
         ) : (
           tasks.filter(t => t.active).map(task => {
             const isCheckInTask = task.type === 'daily_checkin';
-            const isCompleted = isCheckInTask ? checkInDone : user.tasks?.[task.id] === true;
-            const isPending = user.pendingVerificationTasks?.includes(task.id);
-            const targetUrl = task.type.includes('telegram') ? `https://t.me/${task.target.replace('@', '')}` : task.target;
+            const isCompleted = isCheckInTask ? checkInDone : user?.tasks?.[task.id] === true;
+            const isPending = user?.pendingVerificationTasks?.includes(task.id);
+            const targetUrl = task.type.includes('telegram')
+              ? `https://t.me/${(task.target || '').replace('@', '')}`
+              : (task.target || '#');
             const hasClicked = clickedTasks[task.id];
 
             return (
               <div key={task.id} className="bg-white/5 p-4 rounded-xl space-y-2 shadow-md">
                 <div className="flex flex-col">
-                  <p className="text-sm font-semibold text-white">{task.title}</p>
+                  <p className="text-sm font-semibold text-white">{task.title || 'Untitled Task'}</p>
                   <a
                     href={targetUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-xs text-blue-400 hover:underline"
                   >
-                    {task.description}
+                    {task.description || 'No description provided.'}
                   </a>
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <p className="text-xs text-green-400 font-semibold">+{task.reward} STON</p>
+                  <p className="text-xs text-green-400 font-semibold">+{task.reward || 0} STON</p>
 
                   {isCompleted ? (
                     <Badge variant="success" className="text-xs">
@@ -178,8 +219,17 @@ const TasksSection = ({ tasks = [], user, refreshUserData, isLoading }) => {
                       <Clock className="h-3 w-3 mr-1" /> Pending
                     </Badge>
                   ) : isCheckInTask ? (
-                    <Button size="sm" onClick={handleCheckIn} disabled={isCompleted}>
-                      <CalendarCheck className="mr-1 h-4 w-4" /> {checkInDone ? 'Checked In' : 'Check In'}
+                    <Button
+                      size="sm"
+                      onClick={handleCheckIn}
+                      disabled={isCompleted || verifying.checkin}
+                    >
+                      {verifying.checkin ? (
+                        <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                      ) : (
+                        <CalendarCheck className="mr-1 h-4 w-4" />
+                      )}
+                      {checkInDone ? 'Checked In' : 'Check In'}
                     </Button>
                   ) : task.type === 'referral' ? (
                     <Badge variant="outline" className="text-white border-gray-300">Via Invites</Badge>
@@ -188,8 +238,14 @@ const TasksSection = ({ tasks = [], user, refreshUserData, isLoading }) => {
                       Go <ArrowRight className="ml-1 h-4 w-4" />
                     </Button>
                   ) : (
-                    <Button size="sm" onClick={() => handleVerificationClick(task)}>
-                      {task.verificationType === 'auto' ? (
+                    <Button
+                      size="sm"
+                      onClick={() => handleVerificationClick(task)}
+                      disabled={verifying[task.id]}
+                    >
+                      {verifying[task.id] ? (
+                        <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                      ) : task.verificationType === 'auto' ? (
                         <><CheckCircle className="mr-1 h-4 w-4" /> Verify</>
                       ) : (
                         <><HelpCircle className="mr-1 h-4 w-4" /> Request</>
@@ -207,3 +263,4 @@ const TasksSection = ({ tasks = [], user, refreshUserData, isLoading }) => {
 };
 
 export default TasksSection;
+    
