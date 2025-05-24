@@ -153,7 +153,7 @@ const TasksSection = ({ tasks = [], user = {}, refreshUserData, isLoading }) => 
       toast({
         title: success ? 'Verification Requested' : 'Request Failed',
         description: success ? `"${task.title}" sent for review.` : 'Try again later.',
-        variant: success ? 'default' : 'destructive',
+        variant: success ? 'success' : 'destructive',
         className: "bg-[#1a1a1a] text-white"
       });
     }
