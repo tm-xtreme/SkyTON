@@ -1,7 +1,16 @@
-import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
+import { Button } from '@/components/ui/button';
+import { Plus } from 'lucide-react';
 import TaskForm from '@/components/admin/TaskForm';
 import TaskList from '@/components/admin/TaskList';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 // This component orchestrates TaskForm and TaskList
 const TaskManagementTab = ({
@@ -19,54 +28,89 @@ const TaskManagementTab = ({
   handleEditClick,
   handleDeleteTask
 }) => {
+  const [isFormOpen, setIsFormOpen] = useState(false);
+
+  const openForm = () => setIsFormOpen(true);
+  const closeForm = () => {
+    setIsFormOpen(false);
+    if (editingTask) setEditingTask(null);
+  };
+
+  // When edit is clicked, also open the form
+  const handleTaskEdit = (task) => {
+    handleEditClick(task);
+    setIsFormOpen(true);
+  };
+
+  // Handle form submission and close the dialog
+  const handleFormSubmit = (e) => {
+    e.preventDefault(); // Prevent default form submission
+    if (editingTask) {
+      handleUpdateTask(e);
+    } else {
+      handleAddTask(e);
+    }
+    closeForm();
+  };
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div className="lg:col-span-1">
-        <Card>
-          <CardHeader>
-            <CardTitle>{editingTask ? 'Edit Task' : 'Add New Task'}</CardTitle>
-            <CardDescription>
-              {editingTask
-                ? 'Modify the details of the existing task.'
-                : 'Create a new task for users to complete.'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+    <motion.div className="w-full min-h-[100dvh] px-4 pb-28 pt-6 bg-[#0f0f0f] text-white overflow-y-auto">
+      <div className="max-w-4xl mx-auto space-y-4">
+        <div className="text-center">
+          <h2 className="text-xl font-bold text-[#FFD429]">Manage Tasks</h2>
+          <p className="text-sm text-muted-foreground">Create and manage tasks for users</p>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-white">Current Tasks</h3>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-[#BCCCDC]">{tasks.length} task(s)</span>
+            <Button 
+              onClick={openForm} 
+              className="bg-primary hover:bg-primary/90 text-white"
+              size="sm"
+            >
+              <Plus className="h-4 w-4 mr-1" /> Add Task
+            </Button>
+          </div>
+        </div>
+        
+        <TaskList
+          tasks={tasks}
+          onEditClick={handleTaskEdit}
+          onDeleteTask={handleDeleteTask}
+          isEditing={!!editingTask}
+        />
+
+        <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+          <DialogContent className="bg-[#1a1a1a] border-white/10 text-white max-w-md">
+            <DialogHeader>
+              <DialogTitle>{editingTask ? 'Edit Task' : 'Add New Task'}</DialogTitle>
+              <DialogDescription>
+                {editingTask
+                  ? 'Modify the details of the existing task.'
+                  : 'Create a new task for users to complete.'}
+              </DialogDescription>
+            </DialogHeader>
+            
             <TaskForm
               taskData={editingTask || newTask}
               isEditing={!!editingTask}
               onChange={editingTask ? handleEditingTaskChange : handleNewTaskChange}
-              onActiveChange={editingTask ? handleEditingTaskActiveChange : undefined}
+              onActiveChange={editingTask ? handleEditingTaskActiveChange : undefined} // Fixed here
               onVerificationTypeChange={
                 editingTask
                   ? handleEditingTaskVerificationTypeChange
                   : handleNewTaskVerificationTypeChange
               }
-              onSubmit={editingTask ? handleUpdateTask : handleAddTask}
-              onCancel={editingTask ? () => setEditingTask(null) : undefined}
+              onSubmit={handleFormSubmit}
+              onCancel={closeForm}
             />
-          </CardContent>
-        </Card>
+          </DialogContent>
+        </Dialog>
       </div>
-
-      <div className="lg:col-span-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Current Tasks</CardTitle>
-            <CardDescription>Manage existing task definitions.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <TaskList
-              tasks={tasks}
-              onEditClick={handleEditClick}
-              onDeleteTask={handleDeleteTask}
-              isEditing={!!editingTask}
-            />
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+    </motion.div>
   );
 };
 
-export default TaskManagementTab;  
+export default TaskManagementTab;
