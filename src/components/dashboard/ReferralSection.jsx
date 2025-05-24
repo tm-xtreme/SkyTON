@@ -21,15 +21,15 @@ const ReferralSection = ({ user }) => {
 
   const copyReferralLink = () => {
     if (!referralLink) {
-      toast({ title: "Referral link not available", variant: "warning" });
+      toast({ title: "Referral link not available", variant: "destructive", className: "bg-[#1a1a1a] text-white" });
       return;
     }
     navigator.clipboard.writeText(referralLink)
       .then(() => {
-        toast({ title: "Referral Link Copied!", variant: "success" });
+        toast({ title: "Referral Link Copied!", variant: "success", className: "bg-[#1a1a1a] text-white" });
       })
       .catch(err => {
-        toast({ title: "Failed to copy link", description: err.message, variant: "destructive" });
+        toast({ title: "Failed to copy link", description: err.message, variant: "destructive", className: "bg-[#1a1a1a] text-white" });
       });
   };
 
