@@ -10,7 +10,7 @@ export const defaultFirestoreUser = (telegramId, username, firstName, lastName, 
   lastName: lastName || '',
   joinedAt: null, // Will be set to serverTimestamp() by Firestore
   wallet: null,
-  balance: 0,
+  balance: 100,
   energy: 1000, // Default energy
   referrals: 0,
   referralCode: telegramId, // User's own ID is their code
