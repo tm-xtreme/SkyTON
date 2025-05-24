@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Save } from 'lucide-react';
 
 const TaskForm = ({
   taskData,
@@ -31,17 +31,18 @@ const TaskForm = ({
     <form onSubmit={onSubmit} className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <Label htmlFor={`${idPrefix}-title`}>Title</Label>
+          <Label htmlFor={`${idPrefix}-title`} className="text-white">Title</Label>
           <Input
             id={`${idPrefix}-title`}
             name="title"
             value={taskData.title}
             onChange={handleInputChange}
             required
+            className="bg-white/5 border-white/10 text-white"
           />
         </div>
         <div>
-          <Label htmlFor={`${idPrefix}-reward`}>Reward (STON)</Label>
+          <Label htmlFor={`${idPrefix}-reward`} className="text-white">Reward (STON)</Label>
           <Input
             id={`${idPrefix}-reward`}
             name="reward"
@@ -51,29 +52,31 @@ const TaskForm = ({
             value={taskData.reward}
             onChange={handleInputChange}
             required
+            className="bg-white/5 border-white/10 text-white"
           />
         </div>
       </div>
 
       <div>
-        <Label htmlFor={`${idPrefix}-description`}>Description</Label>
+        <Label htmlFor={`${idPrefix}-description`} className="text-white">Description</Label>
         <Input
           id={`${idPrefix}-description`}
           name="description"
           value={taskData.description || ''}
           onChange={handleInputChange}
+          className="bg-white/5 border-white/10 text-white"
         />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <Label htmlFor={`${idPrefix}-type`}>Type</Label>
+          <Label htmlFor={`${idPrefix}-type`} className="text-white">Type</Label>
           <select
             id={`${idPrefix}-type`}
             name="type"
             value={taskData.type}
             onChange={handleInputChange}
-            className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            className="flex h-10 w-full items-center justify-between rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
           >
             <option value="telegram_join">Telegram Join</option>
             <option value="twitter_follow">Twitter Follow</option>
@@ -83,7 +86,7 @@ const TaskForm = ({
           </select>
         </div>
         <div>
-          <Label htmlFor={`${idPrefix}-target`}>Target (URL/@handle)</Label>
+          <Label htmlFor={`${idPrefix}-target`} className="text-white">Target (URL/@handle)</Label>
           <Input
             id={`${idPrefix}-target`}
             name="target"
@@ -94,13 +97,14 @@ const TaskForm = ({
                 ? '@username'
                 : 'https://...'
             }
+            className="bg-white/5 border-white/10 text-white"
           />
         </div>
       </div>
 
       {showVerificationOptions && onVerificationTypeChange && (
         <div className="pt-2">
-          <Label>Verification Method</Label>
+          <Label className="text-white">Verification Method</Label>
           <RadioGroup
             name="verificationType"
             value={taskData.verificationType || 'manual'}
@@ -109,11 +113,11 @@ const TaskForm = ({
           >
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="auto" id={`${idPrefix}-verify-auto`} />
-              <Label htmlFor={`${idPrefix}-verify-auto`}>Automatic</Label>
+              <Label htmlFor={`${idPrefix}-verify-auto`} className="text-white">Automatic</Label>
             </div>
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="manual" id={`${idPrefix}-verify-manual`} />
-              <Label htmlFor={`${idPrefix}-verify-manual`}>Manual</Label>
+              <Label htmlFor={`${idPrefix}-verify-manual`} className="text-white">Manual</Label>
             </div>
           </RadioGroup>
           <p className="text-xs text-muted-foreground mt-1">
@@ -128,21 +132,33 @@ const TaskForm = ({
           checked={taskData.active}
           onCheckedChange={onActiveChange}
         />
-        <Label htmlFor={`${idPrefix}-active`}>Task Active</Label>
+        <Label htmlFor={`${idPrefix}-active`} className="text-white">Task Active</Label>
       </div>
 
-      <div className="flex justify-end gap-2 pt-4">
-        {isEditing && (
-          <Button type="button" variant="outline" onClick={onCancel}>
+      <div className="flex justify-end gap-2 pt-4 border-t border-white/10 mt-4">
+        {onCancel && (
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={onCancel}
+            className="bg-white/5 border-white/10 text-white hover:bg-white/10"
+          >
             Cancel
           </Button>
         )}
-        <Button type="submit">
-          {isEditing ? 'Save Changes' : <><PlusCircle className="mr-2 h-4 w-4" /> Add Task</>}
+        <Button 
+          type="submit"
+          className="bg-primary hover:bg-primary/90 text-white"
+        >
+          {isEditing ? (
+            <><Save className="mr-2 h-4 w-4" /> Save Changes</>
+          ) : (
+            <><PlusCircle className="mr-2 h-4 w-4" /> Add Task</>
+          )}
         </Button>
       </div>
     </form>
   );
 };
 
-export default TaskForm;  
+export default TaskForm;
