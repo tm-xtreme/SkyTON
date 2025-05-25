@@ -64,6 +64,7 @@ const UserManagementTab = ({ users = [], searchTerm, setSearchTerm, handleBanTog
         title: 'Wallet copied!',
         description: wallet,
         className: 'bg-[#1a1a1a] text-white break-all whitespace-pre-line',
+        variant: "success",
       });
       setTimeout(() => setCopying(false), 1200);
     } catch {
@@ -131,7 +132,7 @@ const UserManagementTab = ({ users = [], searchTerm, setSearchTerm, handleBanTog
         {/* Sorting Options */}
         <div className="flex justify-end">
           <Select value={sortOption} onValueChange={setSortOption}>
-            <SelectTrigger className="w-[180px] bg-white/5 border-white/10 text-white">
+            <SelectTrigger className="w-auto bg-white/5 border-white/10 text-white">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
             <SelectContent className="bg-[#1a1a1a] text-white border-white/10">
