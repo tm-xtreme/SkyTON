@@ -6,12 +6,19 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
-import { Ban, CheckCircle, User, Wallet, Calendar, Copy } from 'lucide-react';
+import { Ban, CheckCircle, User, Wallet, Calendar, Copy, SortAsc, SortDesc, Users, ShieldAlert } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const UserManagementTab = ({ users = [], searchTerm, setSearchTerm, handleBanToggle }) => {
   const [copying, setCopying] = useState(false);
+  const [sortOption, setSortOption] = useState("newest");
   const { toast } = useToast();
+
+  // Calculate user statistics
+  const totalUsers = users.length;
+  const totalBanned = users.filter(user => user.isBanned).length;
+  const totalAdmins = users.filter(user => user.isAdmin).length;
 
   const filteredUsers = users.filter((user) => {
     const searchLower = searchTerm.toLowerCase();
@@ -22,6 +29,30 @@ const UserManagementTab = ({ users = [], searchTerm, setSearchTerm, handleBanTog
       String(user.telegramId).includes(searchLower) ||
       user.wallet?.toLowerCase().includes(searchLower)
     );
+  });
+
+  // Sort users based on selected option
+  const sortedUsers = [...filteredUsers].sort((a, b) => {
+    switch (sortOption) {
+      case "name":
+        const nameA = `${a.firstName || ''} ${a.lastName || ''}`.trim() || a.username || '';
+        const nameB = `${b.firstName || ''} ${b.lastName || ''}`.trim() || b.username || '';
+        return nameA.localeCompare(nameB);
+      case "newest":
+        const timeA = a.joinedAt instanceof Timestamp ? a.joinedAt.toMillis() : (a.joinedAt?.seconds * 1000 || 0);
+        const timeB = b.joinedAt instanceof Timestamp ? b.joinedAt.toMillis() : (b.joinedAt?.seconds * 1000 || 0);
+        return timeB - timeA; // Newest first
+      case "oldest":
+        const timeC = a.joinedAt instanceof Timestamp ? a.joinedAt.toMillis() : (a.joinedAt?.seconds * 1000 || 0);
+        const timeD = b.joinedAt instanceof Timestamp ? b.joinedAt.toMillis() : (b.joinedAt?.seconds * 1000 || 0);
+        return timeC - timeD; // Oldest first
+      case "banned":
+        return (b.isBanned ? 1 : 0) - (a.isBanned ? 1 : 0); // Banned first
+      case "admins":
+        return (b.isAdmin ? 1 : 0) - (a.isAdmin ? 1 : 0); // Admins first
+      default:
+        return 0;
+    }
   });
 
   const handleCopyWallet = async (wallet) => {
@@ -72,9 +103,50 @@ const UserManagementTab = ({ users = [], searchTerm, setSearchTerm, handleBanTog
           className="bg-white/5 text-white placeholder:text-muted-foreground border-white/10 focus-visible:ring-1 focus-visible:ring-primary"
         />
 
+        {/* User Statistics */}
+        <div className="grid grid-cols-3 gap-3 py-2">
+          <div className="bg-white/5 rounded-lg p-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-blue-400" />
+              <span className="text-sm text-gray-300">Total Users</span>
+            </div>
+            <span className="text-lg font-bold text-blue-400">{totalUsers}</span>
+          </div>
+          <div className="bg-white/5 rounded-lg p-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Ban className="h-5 w-5 text-red-400" />
+              <span className="text-sm text-gray-300">Banned</span>
+            </div>
+            <span className="text-lg font-bold text-red-400">{totalBanned}</span>
+          </div>
+          <div className="bg-white/5 rounded-lg p-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="h-5 w-5 text-amber-400" />
+              <span className="text-sm text-gray-300">Admins</span>
+            </div>
+            <span className="text-lg font-bold text-amber-400">{totalAdmins}</span>
+          </div>
+        </div>
+
+        {/* Sorting Options */}
+        <div className="flex justify-end">
+          <Select value={sortOption} onValueChange={setSortOption}>
+            <SelectTrigger className="w-[180px] bg-white/5 border-white/10 text-white">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent className="bg-[#1a1a1a] text-white border-white/10">
+              <SelectItem value="name">Name (A-Z)</SelectItem>
+              <SelectItem value="newest">Newest First</SelectItem>
+              <SelectItem value="oldest">Oldest First</SelectItem>
+              <SelectItem value="banned">Banned Users</SelectItem>
+              <SelectItem value="admins">Admins First</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredUsers.length > 0 ? (
-            filteredUsers.map((user) => {
+          {sortedUsers.length > 0 ? (
+            sortedUsers.map((user) => {
               const displayName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username || 'N/A';
               const fallback = (user.firstName || user.username || 'U').charAt(0).toUpperCase();
 
@@ -109,7 +181,7 @@ const UserManagementTab = ({ users = [], searchTerm, setSearchTerm, handleBanTog
                             className="flex items-center p-1.5 rounded-full transition hover:bg-sky-400/20 active:scale-95"
                             aria-label="Copy Wallet Address"
                             title={copying ? "Copied!" : "Copy Wallet Address"}
-                            onClick={() => handleCopyWallet(user.wallet)} // Pass the wallet to the function
+                            onClick={() => handleCopyWallet(user.wallet)}
                           >
                             <Copy className={`h-4 w-4 ${copying ? 'text-green-400' : 'text-gray-400'} transition`} />
                           </button>
@@ -172,3 +244,4 @@ const UserManagementTab = ({ users = [], searchTerm, setSearchTerm, handleBanTog
 };
 
 export default UserManagementTab;
+                                                                                 
