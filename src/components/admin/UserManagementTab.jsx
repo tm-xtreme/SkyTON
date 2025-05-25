@@ -109,21 +109,21 @@ const UserManagementTab = ({ users = [], searchTerm, setSearchTerm, handleBanTog
           <div className="bg-white/5 rounded-lg p-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Users className="h-5 w-5 text-blue-400" />
-              <span className="text-sm text-gray-300">Total Users</span>
+              <span className="text-sm text-gray-300"></span>
             </div>
             <span className="text-lg font-bold text-blue-400">{totalUsers}</span>
           </div>
           <div className="bg-white/5 rounded-lg p-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Ban className="h-5 w-5 text-red-400" />
-              <span className="text-sm text-gray-300">Banned</span>
+              <span className="text-sm text-gray-300"></span>
             </div>
             <span className="text-lg font-bold text-red-400">{totalBanned}</span>
           </div>
           <div className="bg-white/5 rounded-lg p-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <ShieldAlert className="h-5 w-5 text-amber-400" />
-              <span className="text-sm text-gray-300">Admins</span>
+              <span className="text-sm text-gray-300"></span>
             </div>
             <span className="text-lg font-bold text-amber-400">{totalAdmins}</span>
           </div>
