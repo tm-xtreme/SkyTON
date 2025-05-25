@@ -154,7 +154,7 @@ const UserManagementTab = ({ users = [], searchTerm, setSearchTerm, handleBanTog
             <SelectTrigger className="w-[180px] bg-white/5 border-white/10 text-white">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
-            <SelectContent className="bg-[#1a1a1a] text-white border-white/10 min-w-[180px]">
+            <SelectContent className="min-w-[180px] bg-[#1a1a1a] text-white border-white/10">
               <SelectItem value="name">Name (A-Z)</SelectItem>
               <SelectItem value="newest">Newest First</SelectItem>
               <SelectItem value="oldest">Oldest First</SelectItem>
