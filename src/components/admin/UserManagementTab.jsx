@@ -34,22 +34,41 @@ const UserManagementTab = ({ users = [], searchTerm, setSearchTerm, handleBanTog
   // Sort users based on selected option
   const sortedUsers = [...filteredUsers].sort((a, b) => {
     switch (sortOption) {
-      case "name":
+      case "name": {
         const nameA = `${a.firstName || ''} ${a.lastName || ''}`.trim() || a.username || '';
         const nameB = `${b.firstName || ''} ${b.lastName || ''}`.trim() || b.username || '';
-        return nameA.localeCompare(nameB);
-      case "newest":
+
+        const getPriorityChar = (str) => {
+          const firstChar = str.trim().charAt(0).toUpperCase();
+          if (firstChar >= 'A' && firstChar <= 'Z') return `1${firstChar}`;
+          if (firstChar >= '0' && firstChar <= '9') return `2${firstChar}`;
+          return `3${firstChar}`; // symbols and others
+        };
+
+        const priorityA = getPriorityChar(nameA);
+        const priorityB = getPriorityChar(nameB);
+
+        return priorityA.localeCompare(priorityB) || nameA.localeCompare(nameB);
+      }
+
+      case "newest": {
         const timeA = a.joinedAt instanceof Timestamp ? a.joinedAt.toMillis() : (a.joinedAt?.seconds * 1000 || 0);
         const timeB = b.joinedAt instanceof Timestamp ? b.joinedAt.toMillis() : (b.joinedAt?.seconds * 1000 || 0);
         return timeB - timeA; // Newest first
-      case "oldest":
+      }
+
+      case "oldest": {
         const timeC = a.joinedAt instanceof Timestamp ? a.joinedAt.toMillis() : (a.joinedAt?.seconds * 1000 || 0);
         const timeD = b.joinedAt instanceof Timestamp ? b.joinedAt.toMillis() : (b.joinedAt?.seconds * 1000 || 0);
         return timeC - timeD; // Oldest first
+      }
+
       case "banned":
         return (b.isBanned ? 1 : 0) - (a.isBanned ? 1 : 0); // Banned first
+
       case "admins":
         return (b.isAdmin ? 1 : 0) - (a.isAdmin ? 1 : 0); // Admins first
+
       default:
         return 0;
     }
@@ -132,7 +151,7 @@ const UserManagementTab = ({ users = [], searchTerm, setSearchTerm, handleBanTog
         {/* Sorting Options */}
         <div className="flex justify-end">
           <Select value={sortOption} onValueChange={setSortOption}>
-            <SelectTrigger className="min-w-[180px] bg-white/5 border-white/10 text-white">
+            <SelectTrigger className="w-[180px] bg-white/5 border-white/10 text-white">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
             <SelectContent className="bg-[#1a1a1a] text-white border-white/10 min-w-[180px]">
