@@ -132,10 +132,10 @@ const UserManagementTab = ({ users = [], searchTerm, setSearchTerm, handleBanTog
         {/* Sorting Options */}
         <div className="flex justify-end">
           <Select value={sortOption} onValueChange={setSortOption}>
-            <SelectTrigger className="w-auto bg-white/5 border-white/10 text-white">
+            <SelectTrigger className="min-w-[180px] bg-white/5 border-white/10 text-white">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
-            <SelectContent className="bg-[#1a1a1a] text-white border-white/10">
+            <SelectContent className="bg-[#1a1a1a] text-white border-white/10 min-w-[180px]">
               <SelectItem value="name">Name (A-Z)</SelectItem>
               <SelectItem value="newest">Newest First</SelectItem>
               <SelectItem value="oldest">Oldest First</SelectItem>
@@ -144,7 +144,6 @@ const UserManagementTab = ({ users = [], searchTerm, setSearchTerm, handleBanTog
             </SelectContent>
           </Select>
         </div>
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {sortedUsers.length > 0 ? (
             sortedUsers.map((user) => {
