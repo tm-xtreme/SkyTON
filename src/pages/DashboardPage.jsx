@@ -33,7 +33,7 @@ const DashboardPage = ({ activeView }) => {
     fetchTasks();
   }, []);
 
-  const refreshUser Data = (updatedUser ) => {
+  const refreshUserData = (updatedUser ) => {
     setUser (updatedUser );
   };
 
