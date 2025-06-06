@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Button } from '@/components/gui/button';
-import { useToast } from '@/components/gui/use-toast';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/use-toast';
 import { Zap, DollarSign, ArrowLeft } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc, increment } from 'firebase/firestore';
@@ -20,7 +20,7 @@ const getRandomPosition = () => `${Math.random() * 80}%`;
 const getRandomReward = () => Math.floor(Math.random() * 5) + 1;
 
 export default function StonDropGame() {
-  const [userData, setUserData] = useState(null);
+  const [userData, setUser Data] = useState(null);
   const [droppables, setDroppables] = useState([]);
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
@@ -38,7 +38,7 @@ export default function StonDropGame() {
   const catchAudio = useRef(new Audio(catchSfx));
   const explosionAudio = useRef(new Audio(explosionSfx));
 
-  const userId = sessionStorage.getItem("gameUserId");
+  const userId = sessionStorage.getItem("gameUser Id");
   const gameTimer = useRef(null);
   const dropInterval = useRef(null);
 
@@ -109,7 +109,7 @@ export default function StonDropGame() {
   useEffect(() => {
     if (!userId) return;
 
-    const fetchUser = async () => {
+    const fetchUser  = async () => {
       try {
         const docRef = doc(db, 'users', userId);
         const snap = await getDoc(docRef);
@@ -121,7 +121,7 @@ export default function StonDropGame() {
             return;
           }
           await updateDoc(docRef, { energy: increment(-ENERGY_COST) });
-          setUserData({ ...data, id: userId });
+          setUser Data({ ...data, id: userId });
         }
       } catch (error) {
         toast({ title: 'Failed to load user data.' });
@@ -129,7 +129,7 @@ export default function StonDropGame() {
       }
     };
 
-    fetchUser();
+    fetchUser ();
   }, [userId, navigate, toast]);
 
   useEffect(() => {
