@@ -45,7 +45,7 @@ const DashboardPage = ({ activeView }) => {
       animate="visible"
     >
       {activeView === 'home' && (
-        <ProfileSection user={user} refreshUser Data={refreshUser Data} />
+        <ProfileSection user={user} refreshUserData={refreshUserData} />
       )}
       {activeView === 'invite' && (
         <ReferralSection user={user} />
@@ -58,7 +58,7 @@ const DashboardPage = ({ activeView }) => {
           user={user}
           tasks={tasks}
           isLoading={isLoadingTasks}
-          refreshUser Data={refreshUser Data}
+          refreshUserData={refreshUserData}
         />
       )}
     </motion.div>
