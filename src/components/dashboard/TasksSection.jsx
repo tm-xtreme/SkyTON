@@ -205,7 +205,7 @@ const TasksSection = ({ tasks = [], user = {}, refreshUserData, isLoading }) => 
         WebkitTouchCallout: "none",
       }}
     >
-      <div className="flex flex-col items-center px-4 py-4">
+      <div className="flex flex-col items-center px-4 py-4 pb-24">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
