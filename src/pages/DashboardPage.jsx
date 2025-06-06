@@ -18,7 +18,7 @@ const containerVariants = {
 };
 
 const DashboardPage = ({ activeView }) => {
-  const { user, setUser } = useContext(UserContext);
+  const { user, setUser  } = useContext(UserContext);
   const [tasks, setTasks] = useState([]);
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
 
@@ -33,26 +33,32 @@ const DashboardPage = ({ activeView }) => {
     fetchTasks();
   }, []);
 
-  const refreshUserData = (updatedUser) => {
-    setUser(updatedUser);
+  const refreshUser Data = (updatedUser ) => {
+    setUser (updatedUser );
   };
 
   return (
     <motion.div
-      className="w-full min-h-screen bg-background dark:bg-gray-900 overflow-y-auto"
+      className="relative w-full min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#0f0f0f] to-[#1a1a1a] overflow-y-auto"
       variants={containerVariants}
       initial="hidden"
       animate="visible"
     >
-      {activeView === 'home' && <ProfileSection user={user} refreshUserData={refreshUserData} />}
-      {activeView === 'invite' && <ReferralSection user={user} />}
-      {activeView === 'leaders' && <LeaderboardSection currentUserTelegramId={user?.id} />}
+      {activeView === 'home' && (
+        <ProfileSection user={user} refreshUser Data={refreshUser Data} />
+      )}
+      {activeView === 'invite' && (
+        <ReferralSection user={user} />
+      )}
+      {activeView === 'leaders' && (
+        <LeaderboardSection currentUser TelegramId={user?.id} />
+      )}
       {activeView === 'tasks' && (
         <TasksSection
           user={user}
           tasks={tasks}
           isLoading={isLoadingTasks}
-          refreshUserData={refreshUserData}
+          refreshUser Data={refreshUser Data}
         />
       )}
     </motion.div>
