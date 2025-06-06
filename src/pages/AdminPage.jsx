@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { motion } from 'framer-motion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LogOut, Loader2, Users, ListChecks, CheckSquare } from 'lucide-react';
+import { LogOut, Loader2, Users, ListChecks, CheckSquare, Wallet } from 'lucide-react';
 import { UserContext } from '@/App';
 
 import UserManagementTab from '@/components/admin/UserManagementTab';
 import TaskManagementTab from '@/components/admin/TaskManagementTab';
 import PendingVerificationTab from '@/components/admin/PendingVerificationTab';
+import PendingWithdrawTab from '@/components/admin/PendingWithdrawTab';
 
 import {
   getAllUsers,
@@ -21,7 +22,10 @@ import {
 import {
   getPendingVerifications,
   approveTask,
-  rejectTask
+  rejectTask,
+  getPendingWithdrawals,
+  approveWithdrawal,
+  rejectWithdrawal
 } from '@/data/firestore/adminActions';
 
 const containerVariants = {
@@ -37,10 +41,12 @@ const AdminPage = () => {
   const [users, setUsers] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [pendingItems, setPendingItems] = useState([]);
+  const [pendingWithdrawals, setPendingWithdrawals] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [loadingPending, setLoadingPending] = useState(true);
+  const [loadingWithdrawals, setLoadingWithdrawals] = useState(true);
   const [tab, setTab] = useState('users');
 
   const [newTask, setNewTask] = useState({
@@ -59,19 +65,30 @@ const AdminPage = () => {
     setLoadingUsers(true);
     setLoadingTasks(true);
     setLoadingPending(true);
+    setLoadingWithdrawals(true);
 
-    const [userList, taskList, pendingList] = await Promise.all([
-      getAllUsers(),
-      getAllTasks(),
-      getPendingVerifications()
-    ]);
+    try {
+      const [userList, taskList, pendingList, withdrawalList] = await Promise.all([
+        getAllUsers(),
+        getAllTasks(),
+        getPendingVerifications(),
+        getPendingWithdrawals()
+      ]);
 
-    setUsers(userList || []);
-    setTasks(taskList || []);
-    setPendingItems(pendingList || []);
-    setLoadingUsers(false);
-    setLoadingTasks(false);
-    setLoadingPending(false);
+      console.log('Fetched withdrawal data:', withdrawalList); // Debug log
+
+      setUsers(userList || []);
+      setTasks(taskList || []);
+      setPendingItems(pendingList || []);
+      setPendingWithdrawals(withdrawalList || []);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    } finally {
+      setLoadingUsers(false);
+      setLoadingTasks(false);
+      setLoadingPending(false);
+      setLoadingWithdrawals(false);
+    }
   };
 
   useEffect(() => {
@@ -164,23 +181,65 @@ const AdminPage = () => {
     }
   };
 
+  const handleApproveWithdrawal = async (withdrawalId, userId, amount) => {
+    const success = await approveWithdrawal(withdrawalId, userId, amount);
+    if (success) {
+      const updatedWithdrawals = await getPendingWithdrawals();
+      setPendingWithdrawals(updatedWithdrawals);
+    }
+  };
+
+  const handleRejectWithdrawal = async (withdrawalId) => {
+    const success = await rejectWithdrawal(withdrawalId);
+    if (success) {
+      const updatedWithdrawals = await getPendingWithdrawals();
+      setPendingWithdrawals(updatedWithdrawals);
+    }
+  };
+
   const handleTabChange = async (value) => {
     setTab(value);
     if (value === 'users') {
       setLoadingUsers(true);
-      const userList = await getAllUsers();
-      setUsers(userList || []);
-      setLoadingUsers(false);
+      try {
+        const userList = await getAllUsers();
+        setUsers(userList || []);
+      } catch (error) {
+        console.error('Error fetching users:', error);
+      } finally {
+        setLoadingUsers(false);
+      }
     } else if (value === 'tasks') {
       setLoadingTasks(true);
-      const taskList = await getAllTasks();
-      setTasks(taskList || []);
-      setLoadingTasks(false);
+      try {
+        const taskList = await getAllTasks();
+        setTasks(taskList || []);
+      } catch (error) {
+        console.error('Error fetching tasks:', error);
+      } finally {
+        setLoadingTasks(false);
+      }
     } else if (value === 'pending') {
       setLoadingPending(true);
-      const pendingList = await getPendingVerifications();
-      setPendingItems(pendingList || []);
-      setLoadingPending(false);
+      try {
+        const pendingList = await getPendingVerifications();
+        setPendingItems(pendingList || []);
+      } catch (error) {
+        console.error('Error fetching pending items:', error);
+      } finally {
+        setLoadingPending(false);
+      }
+    } else if (value === 'withdrawals') {
+      setLoadingWithdrawals(true);
+      try {
+        const withdrawalList = await getPendingWithdrawals();
+        console.log('Tab change - withdrawal data:', withdrawalList); // Debug log
+        setPendingWithdrawals(withdrawalList || []);
+      } catch (error) {
+        console.error('Error fetching withdrawals:', error);
+      } finally {
+        setLoadingWithdrawals(false);
+      }
     }
   };
 
@@ -188,7 +247,7 @@ const AdminPage = () => {
     if (window.confirm('Are you sure you want to logout?')) {
       localStorage.removeItem('adminVerified');
       sessionStorage.removeItem('adminSession');
-      window.location.reload(); // Reload the page to trigger the login screen
+      window.location.reload();
     }
   };
 
@@ -201,7 +260,7 @@ const AdminPage = () => {
     >
       <div className="max-w-4xl mx-auto space-y-5">
         <div className="flex items-center justify-between">
-          <div className="w-10"></div> {/* Spacer to center the heading */}
+          <div className="w-10"></div>
           <div className="text-center flex-1">
             <h2 className="text-xl font-bold">Admin Dashboard</h2>
             <p className="text-sm text-muted-foreground">Control center for managing tasks and users</p>
@@ -216,15 +275,18 @@ const AdminPage = () => {
         </div>
 
         <Tabs value={tab} onValueChange={handleTabChange} className="w-full bg-[#0f0f0f]">
-          <TabsList className="grid grid-cols-3 bg-[#1a1a1a] text-white rounded-lg shadow-md">
-            <TabsTrigger value="users" className="flex items-center justify-center gap-1 py-2 rounded-lg data-[state=active]:bg-primary/80">
+          <TabsList className="grid grid-cols-4 bg-[#1a1a1a] text-white rounded-lg shadow-md">
+            <TabsTrigger value="users" className="flex items-center justify-center gap-1 py-2 rounded-lg data-[state=active]:bg-primary/80 transition-all duration-200">
               <Users className="h-4 w-4" /> Users
             </TabsTrigger>
-            <TabsTrigger value="tasks" className="flex items-center justify-center gap-1 py-2 rounded-lg data-[state=active]:bg-primary/80">
+            <TabsTrigger value="tasks" className="flex items-center justify-center gap-1 py-2 rounded-lg data-[state=active]:bg-primary/80 transition-all duration-200">
               <ListChecks className="h-4 w-4" /> Tasks
             </TabsTrigger>
-            <TabsTrigger value="pending" className="flex items-center justify-center gap-1 py-2 rounded-lg data-[state=active]:bg-primary/80">
+            <TabsTrigger value="pending" className="flex items-center justify-center gap-1 py-2 rounded-lg data-[state=active]:bg-primary/80 transition-all duration-200">
               <CheckSquare className="h-4 w-4" /> Pending
+            </TabsTrigger>
+            <TabsTrigger value="withdrawals" className="flex items-center justify-center gap-1 py-2 rounded-lg data-[state=active]:bg-primary/80 transition-all duration-200">
+              <Wallet className="h-4 w-4" /> Withdrawals
             </TabsTrigger>
           </TabsList>
 
@@ -271,6 +333,20 @@ const AdminPage = () => {
                 pendingItems={pendingItems}
                 onApprove={handleApprove}
                 onReject={handleReject}
+              />
+            )}
+          </TabsContent>
+
+          <TabsContent value="withdrawals" className="pt-4">
+            {loadingWithdrawals ? (
+              <div className="flex justify-center items-center h-32">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ) : (
+              <PendingWithdrawTab
+                pendingWithdrawals={pendingWithdrawals}
+                onApprove={handleApproveWithdrawal}
+                onReject={handleRejectWithdrawal}
               />
             )}
           </TabsContent>
