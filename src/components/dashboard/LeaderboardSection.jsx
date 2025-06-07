@@ -1,198 +1,71 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Button } from '@/components/ui/button';
+import { getLeaderboardData } from '@/data';
+import { Loader2, Trophy, Crown, Medal, Award, Users, Calendar, Clock } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle, CalendarCheck, HelpCircle, Clock, Gamepad2, ArrowRight } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
-import {
-  completeTask,
-  performCheckIn,
-  requestManualVerification,
-  getCurrentUser,
-  isCheckInDoneToday
-} from '@/data';
-import { useNavigate } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 
-const itemVariants = {
-  hidden: { opacity: 0, y: 10 },
-  visible: { opacity: 1, y: 0 }
-};
+const LeaderboardSection = ({ currentUserTelegramId }) => {
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [filter, setFilter] = useState('all');
 
-const TasksSection = ({ tasks = [], user = {}, refreshUserData, isLoading }) => {
-  const { toast } = useToast();
-  const navigate = useNavigate();
-  const [clickedTasks, setClickedTasks] = useState({});
-  const [verifying, setVerifying] = useState({});
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      const data = await getLeaderboardData(filter);
+      setLeaderboard(data || []);
+      setIsLoading(false);
+    };
 
-  const checkInDone = isCheckInDoneToday(user?.lastCheckIn);
+    fetchData();
+  }, [filter]);
 
-  const handlePlayGame = () => {
-    if (user?.id) {
-      sessionStorage.setItem('gameUserId', user.id);
-      navigate('/game');
+  const getRankSuffix = (rank) => {
+    if (rank === 1) return 'st';
+    if (rank === 2) return 'nd';
+    if (rank === 3) return 'rd';
+    return 'th';
+  };
+
+  const getRankIcon = (rank) => {
+    switch (rank) {
+      case 1:
+        return <Crown className="h-4 w-4 text-yellow-400" />;
+      case 2:
+        return <Medal className="h-4 w-4 text-gray-400" />;
+      case 3:
+        return <Award className="h-4 w-4 text-yellow-600" />;
+      default:
+        return <Trophy className="h-4 w-4 text-gray-500" />;
     }
   };
 
-  const handleGoToTask = (taskId, url) => {
-    window.open(url, '_blank');
-    setClickedTasks(prev => ({ ...prev, [taskId]: true }));
-  };
-
-  const handleCheckIn = async () => {
-    if (!user?.id) return;
-    setVerifying(v => ({ ...v, checkin: true }));
-    const result = await performCheckIn(user.id);
-    if (result.success) {
-      const updatedUser = await getCurrentUser(user.id);
-      if (updatedUser) refreshUserData(updatedUser);
-      toast({ 
-        title: 'Daily Check-in Successful!', 
-        description: `+${result.reward} STON`, 
-        variant: 'success', 
-        className: "bg-[#1a1a1a] text-white" 
-      });
-    } else {
-      toast({ 
-        title: 'Check-in Failed', 
-        description: result.message || 'Try again later.', 
-        variant: 'destructive', 
-        className: "bg-[#1a1a1a] text-white" 
-      });
-    }
-    setVerifying(v => ({ ...v, checkin: false }));
-  };
-
-  const sendAdminNotification = async (message) => {
-    try {
-      await fetch(`https://api.telegram.org/bot${import.meta.env.VITE_TG_BOT_TOKEN}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: '5063003944',
-          text: message,
-          parse_mode: 'HTML'
-        })
-      });
-    } catch (err) {
-      console.error("Failed to send admin notification:", err);
+  const getRankColor = (rank) => {
+    switch (rank) {
+      case 1:
+        return 'from-yellow-600/20 to-yellow-800/20 border-yellow-500/30';
+      case 2:
+        return 'from-gray-600/20 to-gray-800/20 border-gray-500/30';
+      case 3:
+        return 'from-yellow-600/20 to-yellow-700/20 border-yellow-600/30';
+      default:
+        return 'from-gray-800/50 to-gray-900/50 border-gray-600/50';
     }
   };
 
-  const handleVerificationClick = async (task) => {
-    if (!user?.id || !task?.id) return;
-
-    setVerifying(v => ({ ...v, [task.id]: true }));
-
-    const isCompleted = user.tasks?.[task.id] === true;
-    const isPending = user.pendingVerificationTasks?.includes(task.id);
-    if (isCompleted || isPending) {
-      setVerifying(v => ({ ...v, [task.id]: false }));
-      return;
+  const getRankTextColor = (rank) => {
+    switch (rank) {
+      case 1:
+        return 'text-yellow-400';
+      case 2:
+        return 'text-gray-400';
+      case 3:
+        return 'text-yellow-600';
+      default:
+        return 'text-gray-400';
     }
-
-    if (task.verificationType === 'auto' && task.type === 'telegram_join') {
-      try {
-        const apiUrl = `https://api.telegram.org/bot${import.meta.env.VITE_TG_BOT_TOKEN}/getChatMember?chat_id=@${task.target.replace('@', '')}&user_id=${user.id}`;
-        const res = await fetch(apiUrl);
-        const data = await res.json();
-
-        if (data.ok) {
-          const status = data.result.status;
-          if (['member', 'administrator', 'creator'].includes(status)) {
-            const verified = await completeTask(user.id, task.id);
-            if (verified) {
-              const userMention = user.username ? `@${user.username}` : `User ${user.id}`;
-              await sendAdminNotification(`✅ <b>Auto-Verification Success</b>\n${userMention} successfully joined <b>${task.title}</b> (${task.target})\nReward: +${task.reward} STON`);
-              
-              const updatedUser = await getCurrentUser(user.id);
-              if (updatedUser) refreshUserData(updatedUser);
-              toast({ 
-                title: 'Joined Verified', 
-                description: `+${task.reward} STON`, 
-                variant: 'success', 
-                className: "bg-[#1a1a1a] text-white" 
-              });
-              setVerifying(v => ({ ...v, [task.id]: false }));
-              return;
-            }
-          } else {
-            toast({ 
-              title: 'Not Verified', 
-              description: 'Please join the channel first.', 
-              variant: 'destructive', 
-              className: "bg-[#1a1a1a] text-white" 
-            });
-            setClickedTasks(prev => ({ ...prev, [task.id]: false }));
-            setVerifying(v => ({ ...v, [task.id]: false }));
-            return;
-          }
-        } else if (data.error_code === 400 || data.error_code === 403) {
-          await sendAdminNotification(`❗ <b>Bot Error</b>\nBot is not an admin or failed to access @${task.target}. Please ensure it's added correctly.`);
-          toast({ 
-            title: 'Bot Error', 
-            description: 'Something Went Wrong, Please Wait and Try Again Later...', 
-            variant: 'destructive', 
-            className: "bg-[#1a1a1a] text-white" 
-          });
-          setVerifying(v => ({ ...v, [task.id]: false }));
-          return;
-        } else {
-          toast({ 
-            title: 'Telegram Error', 
-            description: 'Failed to verify. Try again.', 
-            variant: 'destructive', 
-            className: "bg-[#1a1a1a] text-white" 
-          });
-          setClickedTasks(prev => ({ ...prev, [task.id]: false }));
-          setVerifying(v => ({ ...v, [task.id]: false }));
-          return;
-        }
-      } catch (err) {
-        toast({ 
-          title: 'Network Error', 
-          description: 'Could not reach Telegram servers.', 
-          variant: 'destructive', 
-          className: "bg-[#1a1a1a] text-white" 
-        });
-        setClickedTasks(prev => ({ ...prev, [task.id]: false }));
-        setVerifying(v => ({ ...v, [task.id]: false }));
-        return;
-      }
-    }
-
-    let success = false;
-    if (task.verificationType === 'auto') {
-      success = await completeTask(user.id, task.id);
-      if (success) {
-        const userMention = user.username ? `@${user.username}` : `User ${user.id}`;
-        await sendAdminNotification(`✅ <b>Auto-Verification Success</b>\n${userMention} completed <b>${task.title}</b>\nReward: +${task.reward} STON`);
-      }
-      toast({
-        title: success ? 'Task Verified!' : 'Verification Failed',
-        description: success ? `+${task.reward} STON` : 'Could not verify task completion.',
-        variant: success ? 'success' : 'destructive',
-        className: "bg-[#1a1a1a] text-white"
-      });
-    } else {
-      success = await requestManualVerification(user.id, task.id);
-
-      if (success) {
-        const userMention = user.username ? `@${user.username}` : `User ${user.id}`;
-        await sendAdminNotification(`🔍 <b>Manual Verification Request</b>\n${userMention} requested verification for <b>${task.title}</b>\nTarget: ${task.target || 'N/A'}\nReward: ${task.reward} STON`);
-      }
-      toast({
-        title: success ? 'Verification Requested' : 'Request Failed',
-        description: success ? `"${task.title}" sent for review.` : 'Try again later.',
-        variant: success ? 'success' : 'destructive',
-        className: "bg-[#1a1a1a] text-white"
-      });
-    }
-
-    if (success) {
-      const updatedUser = await getCurrentUser(user.id);
-      if (updatedUser) refreshUserData(updatedUser);
-    }
-    setVerifying(v => ({ ...v, [task.id]: false }));
   };
 
   return (
@@ -220,221 +93,192 @@ const TasksSection = ({ tasks = [], user = {}, refreshUserData, isLoading }) => 
             className="text-center"
           >
             <h2 className="text-xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-              Available Tasks
+              Leaderboard
             </h2>
-            <p className="text-xs text-gray-400 mt-1">Complete tasks to earn STON rewards</p>
+            <p className="text-xs text-gray-400 mt-1">See who's leading the referral race</p>
           </motion.div>
 
-          {/* Play Game Card */}
+          {/* Filter Buttons */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
             className="w-full"
           >
-            <div className="bg-gradient-to-r from-sky-600/20 to-sky-800/20 backdrop-blur-sm border border-sky-500/30 p-3 rounded-2xl flex items-center justify-between shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-              <div className="flex items-center gap-3">
-                <div className="bg-sky-500/20 p-2 rounded-xl">
-                  <Gamepad2 className="h-5 w-5 text-sky-400" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-white">Play Game</p>
-                  <p className="text-xs text-gray-300">Catch STON gems and earn rewards!</p>
-                </div>
-              </div>
-              <Button 
-                size="sm" 
-                onClick={handlePlayGame}
-                className="h-8 px-3 bg-sky-600 hover:bg-sky-700 text-white rounded-xl"
+            <div className="bg-gradient-to-r from-gray-800/50 to-gray-900/50 backdrop-blur-sm border border-gray-600/50 p-1 rounded-2xl flex gap-1">
+              <button
+                className={cn(
+                  'flex-1 text-xs px-3 py-2 rounded-xl transition-all duration-300 flex items-center justify-center gap-1',
+                  filter === 'all' 
+                    ? 'bg-blue-600 text-white shadow-lg' 
+                    : 'text-gray-400 hover:text-white hover:bg-white/10'
+                )}
+                onClick={() => setFilter('all')}
               >
-                <Gamepad2 className="mr-1 w-4 h-4" /> Play
-              </Button>
+                <Clock className="h-3 w-3" />
+                All Time
+              </button>
+              <button
+                className={cn(
+                  'flex-1 text-xs px-3 py-2 rounded-xl transition-all duration-300 flex items-center justify-center gap-1',
+                  filter === 'weekly' 
+                    ? 'bg-blue-600 text-white shadow-lg' 
+                    : 'text-gray-400 hover:text-white hover:bg-white/10'
+                )}
+                onClick={() => setFilter('weekly')}
+              >
+                <Calendar className="h-3 w-3" />
+                This Week
+              </button>
             </div>
-          </motion.div>
-
-          {/* Tasks List */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="w-full space-y-3"
-          >
-            {isLoading ? (
-              <div className="flex justify-center items-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                <span className="ml-2 text-gray-400 text-sm">Loading tasks...</span>
-              </div>
-            ) : (
-              tasks.filter(t => t.active).map((task, index) => {
-                const isCheckInTask = task.type === 'daily_checkin';
-                const isCompleted = isCheckInTask ? checkInDone : user?.tasks?.[task.id] === true;
-                const isPending = user?.pendingVerificationTasks?.includes(task.id);
-                const targetUrl = task.type.includes('telegram')
-                  ? `https://t.me/${(task.target || '').replace('@', '')}`
-                  : (task.target || '#');
-                const hasClicked = clickedTasks[task.id];
-
-                return (
-                  <motion.div
-                    key={task.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5 + index * 0.1 }}
-                    className="bg-gradient-to-r from-gray-800/50 to-gray-900/50 backdrop-blur-sm border border-gray-600/50 p-3 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="text-sm font-semibold text-white truncate">
-                            {task.title || 'Untitled Task'}
-                          </p>
-                          <Badge className="bg-green-600/20 text-green-300 border-green-600 text-xs px-2 py-0.5">
-                            +{task.reward || 0} STON
-                          </Badge>
-                        </div>
-                        <a
-                          href={targetUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-blue-400 hover:underline block truncate"
-                        >
-                          {task.description || 'No description provided.'}
-                        </a>
-                      </div>
-
-                      <div className="ml-3 flex-shrink-0">
-                        {isCompleted ? (
-                          <Badge className="bg-green-600/20 text-green-300 border-green-600 text-xs">
-                            <CheckCircle className="h-3 w-3 mr-1" /> Done
-                          </Badge>
-                        ) : isPending ? (
-                          <Badge className="bg-yellow-600/20 text-yellow-300 border-yellow-600 text-xs">
-                            <Clock className="h-3 w-3 mr-1" /> Pending
-                          </Badge>
-                        ) : isCheckInTask ? (
-                          <Button
-                            size="sm"
-                            onClick={handleCheckIn}
-                            disabled={isCompleted || verifying.checkin}
-                            className="h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl"
-                          >
-                            {verifying.checkin ? (
-                              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                            ) : (
-                              <CalendarCheck className="mr-1 h-4 w-4" />
-                            )}
-                            {checkInDone ? 'Checked In' : 'Check In'}
-                          </Button>
-                        ) : task.type === 'referral' ? (
-                          <Badge className="bg-purple-600/20 text-purple-300 border-purple-600 text-xs">
-                            Via Invites
-                          </Badge>
-                        ) : !hasClicked ? (
-                          <Button 
-                            size="sm" 
-                            onClick={() => handleGoToTask(task.id, targetUrl)}
-                            className="h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl"
-                          >
-                            Go <ArrowRight className="ml-1 h-4 w-4" />
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            onClick={() => handleVerificationClick(task)}
-                            disabled={verifying[task.id]}
-                            className="h-8 px-3 bg-green-600 hover:bg-green-700 text-white rounded-xl disabled:opacity-50"
-                          >
-                            {verifying[task.id] ? (
-                              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                            ) : task.verificationType === 'auto' ? (
-                              <>
-                                <CheckCircle className="mr-1 h-4 w-4" /> Verify
-                              </>
-                            ) : (
-                              <>
-                                <HelpCircle className="mr-1 h-4 w-4" /> Request
-                              </>
-                            )}
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </motion.div>
-                );
-              })
-            )}
-
-            {/* Empty State */}
-            {!isLoading && tasks.filter(t => t.active).length === 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
-                className="text-center py-8"
-              >
-                <div className="bg-gray-800/50 border border-gray-600/50 rounded-2xl p-6">
-                  <CheckCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-400 text-sm">No tasks available</p>
-                  <p className="text-gray-500 text-xs mt-2">
-                    Check back later for new tasks
-                  </p>
-                </div>
-              </motion.div>
-            )}
           </motion.div>
 
           {/* Stats Summary */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
+            transition={{ delay: 0.4 }}
             className="w-full"
           >
             <div className="bg-gradient-to-r from-purple-600/20 to-purple-800/20 backdrop-blur-sm border border-purple-500/30 p-3 rounded-2xl">
               <div className="flex items-center justify-between">
                 <div className="text-center flex-1">
-                  <p className="text-xs text-gray-300">Completed</p>
+                  <p className="text-xs text-gray-300">Total Users</p>
                   <p className="text-lg font-bold text-white">
-                    {user.tasks ? Object.values(user.tasks).filter(Boolean).length : 0}
+                    {leaderboard.length}
                   </p>
                 </div>
                 <div className="w-px h-8 bg-purple-500/30"></div>
                 <div className="text-center flex-1">
-                  <p className="text-xs text-gray-300">Available</p>
+                  <p className="text-xs text-gray-300">Top Referrer</p>
                   <p className="text-lg font-bold text-white">
-                    {tasks.filter(t => t.active && !user?.tasks?.[t.id]).length}
+                    {leaderboard[0]?.referrals || 0}
                   </p>
                 </div>
                 <div className="w-px h-8 bg-purple-500/30"></div>
                 <div className="text-center flex-1">
-                  <p className="text-xs text-gray-300">Pending</p>
+                  <p className="text-xs text-gray-300">Period</p>
                   <p className="text-lg font-bold text-white">
-                    {user?.pendingVerificationTasks?.length || 0}
+                    {filter === 'all' ? '∞' : '7d'}
                   </p>
                 </div>
               </div>
             </div>
           </motion.div>
 
-          {/* Daily Check-in Streak */}
-          {user?.checkInStreak && user.checkInStreak > 0 && (
+          {/* Leaderboard Content */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="w-full space-y-3"
+          >
+            {isLoading ? (
+              <div className="flex justify-center items-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                <span className="ml-2 text-gray-400 text-sm">Loading leaderboard...</span>
+              </div>
+            ) : leaderboard.length === 0 ? (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-center py-8"
+              >
+                <div className="bg-gray-800/50 border border-gray-600/50 rounded-2xl p-6">
+                  <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-400 text-sm">No leaders yet</p>
+                  <p className="text-gray-500 text-xs mt-2">
+                    Start referring friends to appear on the leaderboard!
+                  </p>
+                </div>
+              </motion.div>
+            ) : (
+              leaderboard.map((user, index) => {
+                const rank = index + 1;
+                const isCurrentUser = user.id === currentUserTelegramId;
+                const displayName = user.firstName
+                  ? `${user.firstName} ${user.lastName || ''}`.trim()
+                  : user.username || `User ${user.id}`;
+                const profileImg =
+                  user.profilePicUrl ||
+                  'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQB_4gKwn8q2WBPTwnV14Jmh3B5g56SCiGEBA&usqp=CAU';
+                const fallbackAvatar = displayName?.substring(0, 2).toUpperCase() || 'U';
+
+                return (
+                  <motion.div
+                    key={user.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.6 + index * 0.1 }}
+                    className={cn(
+                      'bg-gradient-to-r backdrop-blur-sm border p-3 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105',
+                      getRankColor(rank),
+                      isCurrentUser && 'ring-2 ring-blue-500/50'
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        {/* Rank */}
+                        <div className="flex items-center gap-1">
+                          {getRankIcon(rank)}
+                          <span className={cn('font-bold text-sm', getRankTextColor(rank))}>
+                            #{rank}
+                          </span>
+                        </div>
+
+                        {/* Avatar */}
+                        <Avatar className="h-8 w-8 border-2 border-white/20">
+                          <AvatarImage src={profileImg} alt={displayName} />
+                          <AvatarFallback className="bg-gradient-to-br from-blue-600 to-purple-700 text-white text-xs">
+                            {fallbackAvatar}
+                          </AvatarFallback>
+                        </Avatar>
+
+                        {/* Name */}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate text-sm text-white">
+                            {displayName}
+                          </p>
+                          {isCurrentUser && (
+                            <Badge className="bg-blue-600/20 text-blue-300 border-blue-600 text-xs mt-1">
+                              You
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Referrals Count */}
+                      <div className="text-right">
+                        <p className="text-lg font-bold text-white">
+                          {user.referrals || 0}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          referral{user.referrals !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })
+            )}
+          </motion.div>
+
+          {/* Current User Position (if not in top list) */}
+          {!isLoading && leaderboard.length > 0 && !leaderboard.some(user => user.id === currentUserTelegramId) && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.7 }}
+              transition={{ delay: 0.8 }}
               className="w-full"
             >
-              <div className="bg-gradient-to-r from-orange-600/20 to-orange-800/20 backdrop-blur-sm border border-orange-500/30 p-3 rounded-2xl text-center">
-                <div className="flex items-center justify-center gap-2 mb-1">
-                  <CalendarCheck className="h-5 w-5 text-orange-400" />
-                  <p className="text-sm font-semibold text-white">Check-in Streak</p>
+              <div className="bg-gradient-to-r from-blue-600/20 to-blue-800/20 backdrop-blur-sm border border-blue-500/30 p-3 rounded-2xl">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Trophy className="h-4 w-4 text-blue-400" />
+                    <span className="text-sm text-white">Your Position</span>
+                  </div>
+                  <span className="text-sm text-blue-400">Not in top 10</span>
                 </div>
-                <p className="text-2xl font-bold text-orange-400">
-                  {user.checkInStreak} {user.checkInStreak === 1 ? 'day' : 'days'}
-                </p>
-                <p className="text-xs text-gray-300 mt-1">
-                  Keep it up! Daily check-ins earn bonus rewards
-                </p>
               </div>
             </motion.div>
           )}
@@ -443,18 +287,18 @@ const TasksSection = ({ tasks = [], user = {}, refreshUserData, isLoading }) => 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.8 }}
+            transition={{ delay: 0.9 }}
             className="w-full"
           >
-            <div className="bg-gradient-to-r from-blue-600/10 to-blue-800/10 backdrop-blur-sm border border-blue-500/20 p-3 rounded-2xl">
-              <h3 className="text-sm font-semibold text-blue-400 mb-2 text-center">
-                💡 Tips
+            <div className="bg-gradient-to-r from-green-600/10 to-green-800/10 backdrop-blur-sm border border-green-500/20 p-3 rounded-2xl">
+              <h3 className="text-sm font-semibold text-green-400 mb-2 text-center">
+                🏆 How to Climb the Leaderboard
               </h3>
               <div className="space-y-2 text-xs text-gray-300">
-                <p>• Complete daily check-ins to build your streak</p>
-                <p>• Join Telegram channels for instant verification</p>
-                <p>• Manual tasks are reviewed by admins within 24 hours</p>
-                <p>• Play the game daily for extra STON rewards</p>
+                <p>• Share your referral link with friends and family</p>
+                <p>• Post on social media to reach more people</p>
+                <p>• Help your referrals complete tasks for better retention</p>
+                <p>• Weekly leaderboard resets every Monday</p>
               </div>
             </div>
           </motion.div>
@@ -464,4 +308,4 @@ const TasksSection = ({ tasks = [], user = {}, refreshUserData, isLoading }) => 
   );
 };
 
-export default TasksSection;
+export default LeaderboardSection;
