@@ -4,11 +4,13 @@ import {
   CardContent
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Check, X, Loader2, Wallet, User, Calendar, Copy, ExternalLink } from 'lucide-react';
+import { Check, X, Loader2, Wallet, User, Calendar, Copy, ExternalLink, History as HistoryIcon } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { saveAs } from 'file-saver'; // Import file-saver for downloading files
 
 const PendingWithdrawTab = ({ pendingWithdrawals = [], onApprove, onReject }) => {
   const [processing, setProcessing] = useState({});
+  const [showHistory, setShowHistory] = useState(false);
   const { toast } = useToast();
 
   const copyToClipboard = async (text) => {
@@ -100,6 +102,24 @@ const PendingWithdrawTab = ({ pendingWithdrawals = [], onApprove, onReject }) =>
     }
   };
 
+  const downloadHistory = () => {
+    const historyData = pendingWithdrawals.map(withdrawal => ({
+      User: withdrawal.username || withdrawal.userId,
+      Amount: `${withdrawal.amount} STON`,
+      Date: formatDate(withdrawal.createdAt),
+      Status: withdrawal.status,
+      Wallet: withdrawal.walletAddress,
+    }));
+
+    const csvContent = [
+      ["User ", "Amount", "Date", "Status", "Wallet"],
+      ...historyData.map(row => [row.User, row.Amount, row.Date, row.Status, row.Wallet])
+    ].map(e => e.join(",")).join("\n");
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    saveAs(blob, 'withdrawal_history.csv');
+  };
+
   return (
     <div className="w-full">
       <div className="text-center mb-6">
@@ -134,10 +154,10 @@ const PendingWithdrawTab = ({ pendingWithdrawals = [], onApprove, onReject }) =>
                     
                     <div className="space-y-2 text-xs">
                       <div className="flex items-center gap-1.5">
-                        <User className="h-3 w-3 text-blue-400" />
-                        <span className="text-[#BCCCDC]">User: </span>
+                        <User  className="h-3 w-3 text-blue-400" />
+                        <span className="text-[#BCCCDC]">:User  </span>
                         <span className="text-sky-300 font-semibold">
-                          {withdrawal.username ? `@${withdrawal.username}` : `User ${withdrawal.userId}`}
+                          {withdrawal.username ? `@${withdrawal.username}` : `User  ${withdrawal.userId}`}
                         </span>
                       </div>
                       
@@ -238,6 +258,46 @@ const PendingWithdrawTab = ({ pendingWithdrawals = [], onApprove, onReject }) =>
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {/* History Button */}
+      <div className="fixed bottom-4 right-4 z-50">
+        <Button
+          className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg"
+          onClick={() => setShowHistory(true)}
+        >
+          <HistoryIcon className="h-5 w-5" />
+        </Button>
+      </div>
+
+      {/* History Popup */}
+      {showHistory && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-70 z-50">
+          <div className="bg-[#1a1a1a] p-6 rounded-xl shadow-2xl text-center max-w-md w-full">
+            <h3 className="text-lg font-bold text-white mb-4">Withdrawal History</h3>
+            <div className="overflow-y-auto max-h-60">
+              {/* Render history items here */}
+              {/* Example: */}
+              {pendingWithdrawals.map((withdrawal) => (
+                <div key={withdrawal.id} className="text-white mb-2">
+                  <p>{withdrawal.username}: {withdrawal.amount} STON</p>
+                </div>
+              ))}
+            </div>
+            <Button
+              className="mt-4 bg-green-600 hover:bg-green-700 text-white rounded-lg"
+              onClick={downloadHistory}
+            >
+              Download History
+            </Button>
+            <Button
+              className="mt-2 bg-red-600 hover:bg-red-700 text-white rounded-lg"
+              onClick={() => setShowHistory(false)}
+            >
+              Close
+            </Button>
+          </div>
         </div>
       )}
     </div>
