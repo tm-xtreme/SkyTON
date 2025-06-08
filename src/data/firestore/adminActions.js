@@ -327,3 +327,65 @@ export const getUserWithdrawalHistory = async (userId) => {
     return [];
   }
 };
+
+// Get all withdrawal history for admin (all users, all statuses)
+export const getAllWithdrawalHistory = async () => {
+  try {
+    console.log('Fetching all withdrawal history for admin...');
+    
+    const withdrawalsRef = collection(db, 'withdrawals');
+    
+    // First, let's try to get all documents to see what's there
+    const allDocsQuery = query(withdrawalsRef);
+    const allDocsSnapshot = await getDocs(allDocsQuery);
+    
+    console.log('Total withdrawal documents found:', allDocsSnapshot.size);
+    
+    // Log all documents to see their structure
+    allDocsSnapshot.forEach((doc) => {
+      console.log('Withdrawal document ID:', doc.id, 'Data:', doc.data());
+    });
+    
+    // Now try the specific query with orderBy
+    try {
+      const q = query(withdrawalsRef, orderBy('createdAt', 'desc'));
+      const querySnapshot = await getDocs(q);
+      
+      const withdrawals = [];
+      querySnapshot.forEach((doc) => {
+        withdrawals.push({
+          id: doc.id,
+          ...doc.data()
+        });
+      });
+      
+      console.log('getAllWithdrawalHistory result:', withdrawals);
+      return withdrawals;
+    } catch (orderByError) {
+      console.log('OrderBy failed, trying without orderBy...');
+      
+      // If orderBy fails, return the results without ordering
+      const withdrawals = [];
+      allDocsSnapshot.forEach((doc) => {
+        withdrawals.push({
+          id: doc.id,
+          ...doc.data()
+        });
+      });
+      
+      // Sort manually by createdAt (newest first)
+      withdrawals.sort((a, b) => {
+        const dateA = a.createdAt?.toDate?.() || new Date(0);
+        const dateB = b.createdAt?.toDate?.() || new Date(0);
+        return dateB - dateA;
+      });
+      
+      console.log('getAllWithdrawalHistory result (manual sort):', withdrawals);
+      return withdrawals;
+    }
+  } catch (error) {
+    console.error('Error fetching all withdrawal history:', error);
+    return [];
+  }
+};
+      
