@@ -537,7 +537,7 @@ const ProfileSection = ({ user, refreshUserData }) => {
         </motion.div>
 
         {/* Help Button*/}
-        <div className="fixed top-4 right-4 z-50 rounded-full">
+        <div>
           <Button
             className="bg-green-600 text-white rounded-full p-2"
             onClick={() => {
