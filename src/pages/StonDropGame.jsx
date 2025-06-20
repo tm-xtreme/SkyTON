@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Button } from '@/components/ui/button';
-import { useToast } from '@/components/ui/use-toast';
+import { Button } from '@/components/gui/button';
+import { useToast } from '@/components/gui/use-toast';
 import { Zap, DollarSign, ArrowLeft } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc, increment } from 'firebase/firestore';
@@ -38,7 +38,7 @@ export default function StonDropGame() {
   const catchAudio = useRef(new Audio(catchSfx));
   const explosionAudio = useRef(new Audio(explosionSfx));
 
-  const userId = sessionStorage.getItem("gameUser Id");
+  const userId = sessionStorage.getItem("gameUserId");
   const gameTimer = useRef(null);
   const dropInterval = useRef(null);
 
@@ -109,7 +109,7 @@ export default function StonDropGame() {
   useEffect(() => {
     if (!userId) return;
 
-    const fetchUser  = async () => {
+    const fetchUser = async () => {
       try {
         const docRef = doc(db, 'users', userId);
         const snap = await getDoc(docRef);
@@ -129,7 +129,7 @@ export default function StonDropGame() {
       }
     };
 
-    fetchUser ();
+    fetchUser();
   }, [userId, navigate, toast]);
 
   useEffect(() => {
