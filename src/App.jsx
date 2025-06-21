@@ -14,6 +14,9 @@ import Navigation from '@/components/layout/Navigation';
 import { Toaster } from '@/components/ui/toaster';
 import { initializeAppData } from '@/data';
 import { Loader2 } from 'lucide-react';
+import { initializeAdNetworks } from '@/ads/adsController';
+
+
 
 export const UserContext = React.createContext(null);
 
@@ -134,7 +137,7 @@ function App() {
         setIsLoading(false);
       }
     };
-
+    initializeAdNetworks();
     loadUser();
   }, []);
 
