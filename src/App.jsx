@@ -14,6 +14,14 @@ import Navigation from '@/components/layout/Navigation';
 import { Toaster } from '@/components/ui/toaster';
 import { initializeAppData } from '@/data';
 import { Loader2 } from 'lucide-react';
+import { initializeAdNetworks } from '@/ads/adsController';
+
+// Initialize ad networks when app starts
+document.addEventListener('DOMContentLoaded', () => {
+  initializeAdNetworks();
+});
+
+
 
 export const UserContext = React.createContext(null);
 
@@ -136,6 +144,7 @@ function App() {
     };
 
     loadUser();
+    initializeAdNetworks();
   }, []);
 
   const handleAdminLogin = async () => {
