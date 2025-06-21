@@ -1,5 +1,4 @@
 // src/ads/networks/monetag.js
-
 let monetagInstance = null;
 let isInitialized = false;
 let config = null;
