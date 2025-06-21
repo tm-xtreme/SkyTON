@@ -121,7 +121,7 @@ export default function StonDropGame() {
             return;
           }
           await updateDoc(docRef, { energy: increment(-ENERGY_COST) });
-          setUser Data({ ...data, id: userId });
+          setUserData({ ...data, id: userId });
         }
       } catch (error) {
         toast({ title: 'Failed to load user data.' });
