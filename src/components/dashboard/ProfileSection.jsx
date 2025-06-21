@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -32,92 +33,397 @@ import {
   getUserWithdrawalHistory,
 } from "@/data/firestore/adminActions";
 
-const ProfileSection = ({ user, refreshUserData }) => {
+// Separate components for better organization
+const WalletDialog = ({ isOpen, onClose, onConnect }) => {
   const [walletInput, setWalletInput] = useState("");
+  const [isConnecting, setIsConnecting] = useState(false);
+
+  const handleConnect = async () => {
+    setIsConnecting(true);
+    try {
+      await onConnect(walletInput);
+      setWalletInput("");
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        className="bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-600/50 text-white w-full max-w-sm p-4 rounded-2xl shadow-2xl relative"
+      >
+        <button
+          className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
+          onClick={onClose}
+          aria-label="Close dialog"
+        >
+          <X className="w-6 h-6" />
+        </button>
+        <h2 className="text-lg font-bold mb-4 text-center">
+          Connect TON Wallet
+        </h2>
+        <Input
+          value={walletInput}
+          onChange={(e) => setWalletInput(e.target.value)}
+          placeholder="EQ... or UQ..."
+          className="mb-4 h-10 text-white placeholder:text-gray-400 bg-gray-800/50 border border-gray-600/50 rounded-xl focus:border-blue-500 transition-colors"
+          aria-label="TON wallet address"
+        />
+        <Button
+          className="w-full h-10 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 rounded-xl font-semibold disabled:opacity-50"
+          onClick={handleConnect}
+          disabled={isConnecting || !walletInput.trim()}
+        >
+          {isConnecting ? (
+            <>
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              Connecting...
+            </>
+          ) : (
+            <>
+              <LinkIcon className="w-5 h-5 mr-2" /> Connect Wallet
+            </>
+          )}
+        </Button>
+      </motion.div>
+    </div>
+  );
+};
+
+const WithdrawDialog = ({ isOpen, onClose, user, onWithdraw, stonToTon }) => {
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const navigate = useNavigate();
+
+  const handleMaxClick = () => {
+    setWithdrawAmount(user.balance?.toString() || "0");
+  };
+
+  const handleWithdraw = async () => {
+    setVerifying(true);
+    try {
+      await onWithdraw(withdrawAmount);
+      setWithdrawAmount("");
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  const amount = parseFloat(withdrawAmount) || 0;
+  const minWithdrawal = 10000000;
+  const isValidAmount = amount >= minWithdrawal && amount <= (user.balance || 0);
+
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        className="bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-600/50 text-white w-full max-w-sm p-4 rounded-2xl shadow-2xl relative max-h-[80vh] overflow-y-auto"
+      >
+        <button
+          className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors z-10"
+          onClick={onClose}
+          aria-label="Close dialog"
+        >
+          <X className="w-6 h-6" />
+        </button>
+        <h2 className="text-lg font-bold mb-4 text-center">
+          Withdraw STON
+        </h2>
+
+        <div className="bg-gradient-to-r from-yellow-600/20 to-orange-600/20 border border-yellow-500/50 rounded-xl p-2 mb-4">
+          <p className="text-yellow-300 text-xs text-center">
+            ⚠️ All withdrawals require manual verification by admin before
+            processing.
+          </p>
+        </div>
+
+        {user.wallet ? (
+          <>
+            <div className="mb-4">
+              <p className="text-sm text-gray-400 mb-1 font-medium">
+                Withdrawal Address:
+              </p>
+              <div className="bg-gray-800/50 border border-gray-600/50 p-2 rounded-xl">
+                <p className="text-xs font-mono text-white break-all">
+                  {user.wallet}
+                </p>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <p className="text-sm text-gray-400 mb-1 font-medium">
+                Amount to Withdraw:
+              </p>
+              <div className="relative">
+                <Input
+                  type="number"
+                  value={withdrawAmount}
+                  onChange={(e) => setWithdrawAmount(e.target.value)}
+                  placeholder="Enter STON amount"
+                  className="h-10 text-white placeholder:text-gray-400 bg-gray-800/50 border border-gray-600/50 rounded-xl pr-20 focus:border-blue-500"
+                  aria-label="Withdrawal amount"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="absolute right-2 top-2 h-8 px-3 text-xs bg-blue-600/20 border-blue-500/50 text-blue-400 hover:bg-blue-600/30"
+                  onClick={handleMaxClick}
+                >
+                  Max
+                </Button>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <div className="bg-gradient-to-r from-green-600/20 to-emerald-600/20 border border-green-500/50 rounded-xl p-2">
+                <p className="text-sm text-gray-300 text-center">
+                  Available Balance
+                </p>
+                <p className="text-lg font-bold text-white text-center">
+                  {user.balance?.toLocaleString() || "0"} STON
+                </p>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/50 rounded-xl p-2">
+                <p className="text-blue-300 text-sm mb-1 text-center font-medium">
+                  Auto Conversion:
+                </p>
+                <p className="text-white font-bold text-lg text-center">
+                  {withdrawAmount || "0"} STON ={" "}
+                  {stonToTon(withdrawAmount)} TON
+                </p>
+                <p className="text-xs text-gray-400 mt-1 text-center">
+                  Rate: 10,000,000 STON = 1 TON
+                </p>
+                <p className="text-xs text-yellow-400 mt-1 text-center">
+                  Minimum: 10,000,000 STON (1 TON)
+                </p>
+              </div>
+            </div>
+
+            <Button
+              className="w-full h-10 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={handleWithdraw}
+              disabled={verifying || !isValidAmount}
+            >
+              {verifying ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                "Request Withdrawal"
+              )}
+            </Button>
+          </>
+        ) : (
+          <div className="text-center py-8">
+            <Wallet className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <p className="text-red-500 mb-4">
+              Please set your wallet address first via the wallet
+              connection feature.
+            </p>
+            <Button
+              variant="outline"
+              className="w-full h-10 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-2xl"
+              onClick={() => {
+                onClose();
+                navigate("/profile?action=connect-wallet");
+              }}
+            >
+              <Wallet className="mr-2 h-5 w-5" />
+              Connect Wallet
+            </Button>
+          </div>
+        )}
+      </motion.div>
+    </div>
+  );
+};
+
+const ProfileSection = ({ user, refreshUserData }) => {
   const [showWalletDialog, setShowWalletDialog] = useState(false);
   const [showWithdrawDialog, setShowWithdrawDialog] = useState(false);
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
   const [copying, setCopying] = useState(false);
-  const [withdrawAmount, setWithdrawAmount] = useState("");
-  const [verifying, setVerifying] = useState(false);
   const [withdrawalHistory, setWithdrawalHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const adminUsername = import.meta.env.VITE_ADMIN_TG_USERNAME;
+  const adminChatId = import.meta.env.VITE_ADMIN_CHAT_ID;
   const isBanned = user.isBanned;
 
-  const handleConnectWallet = async () => {
+  // Memoized calculations
+  const tasksDone = useMemo(() => {
+    return user.tasks ? Object.values(user.tasks).filter(Boolean).length : 0;
+  }, [user.tasks]);
+
+  const displayName = useMemo(() => {
+    return user.firstName
+      ? `${user.firstName} ${user.lastName || ""}`.trim()
+      : user.username || `User ${user.id}`;
+  }, [user.firstName, user.lastName, user.username, user.id]);
+
+  const fallbackAvatar = useMemo(() => {
+    return displayName.substring(0, 2).toUpperCase();
+  }, [displayName]);
+
+  // Utility functions
+  const stonToTon = useCallback((ston) => {
+    const amount = parseFloat(ston) || 0;
+    return (amount / 10000000).toFixed(6);
+  }, []);
+
+  const formatDate = useCallback((timestamp) => {
+    if (!timestamp) return "Unknown";
+    try {
+      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+      return date.toLocaleString();
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return "Invalid Date";
+    }
+  }, []);
+
+  const getStatusBadge = useCallback((status) => {
+    const badges = {
+      pending: (
+        <Badge className="bg-yellow-600/20 text-yellow-300 border-yellow-600 hover:bg-yellow-600/30">
+          <Clock className="h-3 w-3 mr-1" />
+          Pending
+        </Badge>
+      ),
+      approved: (
+        <Badge className="bg-green-600/20 text-green-300 border-green-600 hover:bg-green-600/30">
+          <CheckCircle className="h-3 w-3 mr-1" />
+          Approved
+        </Badge>
+      ),
+      rejected: (
+        <Badge className="bg-red-600/20 text-red-300 border-red-600 hover:bg-red-600/30">
+          <XCircle className="h-3 w-3 mr-1" />
+          Rejected
+        </Badge>
+      ),
+    };
+    return badges[status] || (
+      <Badge className="bg-gray-600/20 text-gray-300 border-gray-600">
+        Unknown
+      </Badge>
+    );
+  }, []);
+
+  // API call to backend for admin notification
+  const sendAdminNotification = useCallback(async (message) => {
+    try {
+      const response = await fetch("/api/notify-admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message, adminChatId }),
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to send notification");
+      }
+      
+      return true;
+    } catch (err) {
+      console.error("Failed to send admin notification:", err);
+      toast({
+        title: "Warning",
+        description: "Admin notification failed, but your request was submitted.",
+        variant: "warning",
+        className: "bg-[#1a1a1a] text-white",
+      });
+      return false;
+    }
+  }, [adminChatId, toast]);
+
+  const handleConnectWallet = useCallback(async (walletInput) => {
     if (!user?.id) return;
-    if (walletInput.trim()) {
-      if (
-        walletInput.length === 48 &&
-        (walletInput.startsWith("EQ") || walletInput.startsWith("UQ"))
-      ) {
-        const success = await connectWallet(user.id, walletInput);
-        if (success) {
-          const updatedUser = await getCurrentUser(user.id);
-          if (updatedUser) refreshUserData(updatedUser);
-          setWalletInput("");
-          setShowWalletDialog(false);
-          toast({
-            title: "Wallet Connected",
-            description: `Wallet ${walletInput.substring(
-              0,
-              6
-            )}...${walletInput.substring(walletInput.length - 4)} added.`,
-            variant: "success",
-            className: "bg-[#1a1a1a] text-white",
-          });
-        } else {
-          toast({
-            title: "Error",
-            description: "Failed to connect wallet.",
-            variant: "destructive",
-            className: "bg-[#1a1a1a] text-white",
-          });
-        }
+    
+    if (
+      walletInput.length === 48 &&
+      (walletInput.startsWith("EQ") || walletInput.startsWith("UQ"))
+    ) {
+      const success = await connectWallet(user.id, walletInput);
+      if (success) {
+        const updatedUser = await getCurrentUser(user.id);
+        if (updatedUser) refreshUserData(updatedUser);
+        setShowWalletDialog(false);
+        toast({
+          title: "Wallet Connected",
+          description: `Wallet ${walletInput.substring(
+            0,
+            6
+          )}...${walletInput.substring(walletInput.length - 4)} added.`,
+          variant: "success",
+          className: "bg-[#1a1a1a] text-white",
+        });
       } else {
         toast({
-          title: "Invalid Wallet",
-          description:
-            "TON address must be 48 characters starting with EQ or UQ.",
+          title: "Error",
+          description: "Failed to connect wallet. Please try again.",
           variant: "destructive",
           className: "bg-[#1a1a1a] text-white",
         });
       }
     } else {
       toast({
-        title: "Wallet Required",
-        description: "Please enter your TON wallet address.",
+        title: "Invalid Wallet",
+        description: "TON address must be 48 characters starting with EQ or UQ.",
         variant: "destructive",
         className: "bg-[#1a1a1a] text-white",
       });
     }
-  };
+  }, [user?.id, refreshUserData, toast]);
 
-  const handleDisconnectWallet = async () => {
+  const handleDisconnectWallet = useCallback(async () => {
     if (!user?.id) return;
-    const success = await disconnectWallet(user.id);
-    if (success) {
-      const updatedUser = await getCurrentUser(user.id);
-      if (updatedUser) refreshUserData(updatedUser);
-      toast({
-        title: "Wallet Disconnected",
-        variant: "default",
-        className: "bg-[#1a1a1a] text-white",
-      });
-    } else {
-      toast({
-        title: "Error",
-        description: "Failed to disconnect wallet.",
-        variant: "destructive",
-        className: "bg-[#1a1a1a] text-white",
-      });
+    
+    if (!confirm("Are you sure you want to disconnect your wallet?")) return;
+    
+    setIsDisconnecting(true);
+    try {
+      const success = await disconnectWallet(user.id);
+      if (success) {
+        const updatedUser = await getCurrentUser(user.id);
+        if (updatedUser) refreshUserData(updatedUser);
+        toast({
+          title: "Wallet Disconnected",
+          description: "Your wallet has been successfully disconnected.",
+          variant: "default",
+          className: "bg-[#1a1a1a] text-white",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to disconnect wallet. Please try again.",
+          variant: "destructive",
+          className: "bg-[#1a1a1a] text-white",
+        });
+      }
+    } finally {
+      setIsDisconnecting(false);
     }
-  };
+  }, [user?.id, refreshUserData, toast]);
 
-  const handleCopyWallet = async () => {
+  const handleCopyWallet = useCallback(async () => {
     if (!user.wallet) return;
     try {
       await navigator.clipboard.writeText(user.wallet);
@@ -131,34 +437,14 @@ const ProfileSection = ({ user, refreshUserData }) => {
     } catch {
       toast({
         title: "Copy failed!",
+        description: "Unable to copy wallet address to clipboard.",
         variant: "destructive",
         className: "bg-[#1a1a1a] text-white",
       });
     }
-  };
+  }, [user.wallet, toast]);
 
-  const sendAdminNotification = async (message) => {
-    try {
-      await fetch(
-        `https://api.telegram.org/bot${
-          import.meta.env.VITE_TG_BOT_TOKEN
-        }/sendMessage`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            chat_id: "5063003944", // Admin chat ID
-            text: message,
-            parse_mode: "HTML",
-          }),
-        }
-      );
-    } catch (err) {
-      console.error("Failed to send admin notification:", err);
-    }
-  };
-
-  const handleWithdraw = async () => {
+  const handleWithdraw = useCallback(async (withdrawAmount) => {
     if (!user?.id || !withdrawAmount) return;
 
     const amount = parseFloat(withdrawAmount);
@@ -174,8 +460,6 @@ const ProfileSection = ({ user, refreshUserData }) => {
       return;
     }
 
-    setVerifying(true);
-
     const success = await createWithdrawalRequest(
       user.id,
       amount,
@@ -187,7 +471,8 @@ const ProfileSection = ({ user, refreshUserData }) => {
     if (success) {
       const userMention = user.username
         ? `@${user.username}`
-        : `User  ${user.id}`;
+        : `User ${user.id}`;
+      
       await sendAdminNotification(
         `💰 <b>Withdrawal Request</b>\n${userMention} requested to withdraw <b>${amount} STON</b>\nWallet: ${
           user.wallet
@@ -196,29 +481,26 @@ const ProfileSection = ({ user, refreshUserData }) => {
 
       toast({
         title: "Withdrawal Requested",
-        description: `You have requested to withdraw ${amount} STON.`,
+        description: `You have requested to withdraw ${amount.toLocaleString()} STON. Admin will review your request.`,
         variant: "success",
         className: "bg-[#1a1a1a] text-white",
       });
-      setWithdrawAmount("");
       setShowWithdrawDialog(false);
     } else {
       toast({
         title: "Withdrawal Failed",
-        description:
-          "Could not process your withdrawal request. Please try again later.",
+        description: "Could not process your withdrawal request. Please try again later.",
         variant: "destructive",
         className: "bg-[#1a1a1a] text-white",
       });
     }
-    setVerifying(false);
-  };
+  }, [user, stonToTon, sendAdminNotification, toast]);
 
-  const handleShowHistory = async () => {
+  const handleShowHistory = useCallback(async () => {
     if (!user?.id) {
       toast({
         title: "Error",
-        description: "User  ID not found",
+        description: "User ID not found",
         variant: "destructive",
         className: "bg-[#1a1a1a] text-white",
       });
@@ -243,67 +525,7 @@ const ProfileSection = ({ user, refreshUserData }) => {
     } finally {
       setLoadingHistory(false);
     }
-  };
-
-  const handleMaxClick = () => {
-    setWithdrawAmount(user.balance?.toString() || "0");
-  };
-
-  const stonToTon = (ston) => {
-    const amount = parseFloat(ston) || 0;
-    return (amount / 10000000).toFixed(6);
-  };
-
-  const formatDate = (timestamp) => {
-    if (!timestamp) return "Unknown";
-    try {
-      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-      return date.toLocaleString();
-    } catch (error) {
-      console.error("Error formatting date:", error);
-      return "Invalid Date";
-    }
-  };
-
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case "pending":
-        return (
-          <Badge className="bg-yellow-600/20 text-yellow-300 border-yellow-600 hover:bg-yellow-600/30">
-            <Clock className="h-3 w-3 mr-1" />
-            Pending
-          </Badge>
-        );
-      case "approved":
-        return (
-          <Badge className="bg-green-600/20 text-green-300 border-green-600 hover:bg-green-600/30">
-            <CheckCircle className="h-3 w-3 mr-1" />
-            Approved
-          </Badge>
-        );
-      case "rejected":
-        return (
-          <Badge className="bg-red-600/20 text-red-300 border-red-600 hover:bg-red-600/30">
-            <XCircle className="h-3 w-3 mr-1" />
-            Rejected
-          </Badge>
-        );
-      default:
-        return (
-          <Badge className="bg-gray-600/20 text-gray-300 border-gray-600">
-            Unknown
-          </Badge>
-        );
-    }
-  };
-
-  const tasksDone = user.tasks
-    ? Object.values(user.tasks).filter(Boolean).length
-    : 0;
-  const displayName = user.firstName
-    ? `${user.firstName} ${user.lastName || ""}`.trim()
-    : user.username || `User  ${user.id}`;
-  const fallbackAvatar = displayName.substring(0, 2).toUpperCase();
+  }, [user?.id, toast]);
 
   return (
     <div
@@ -429,6 +651,14 @@ const ProfileSection = ({ user, refreshUserData }) => {
               </div>
               <p className="text-lg font-bold text-white">{user.energy || 0}</p>
               <p className="text-xs text-yellow-300">Points</p>
+              {/* NEW BUTTON FOR EARNING ENERGY */}
+              <Button
+                size="sm"
+                className="mt-2 w-full bg-yellow-500 hover:bg-yellow-600 text-white font-semibold rounded-xl text-xs py-1 h-6"
+                onClick={() => navigate("/tasks?highlight=energy-ad")}
+              >
+                ⚡ Earn Energy
+              </Button>
             </div>
 
             <div className="bg-gradient-to-br from-purple-600/20 to-purple-800/20 backdrop-blur-sm p-3 rounded-2xl text-center border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300 hover:scale-105 hover:shadow-xl">
@@ -492,12 +722,17 @@ const ProfileSection = ({ user, refreshUserData }) => {
                     </button>
                     <button
                       type="button"
-                      className="flex items-center justify-center p-1 rounded-xl bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 transition-all duration-200 active:scale-95"
+                      className="flex items-center justify-center p-1 rounded-xl bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 transition-all duration-200 active:scale-95 disabled:opacity-50"
                       aria-label="Disconnect Wallet"
                       title="Disconnect Wallet"
                       onClick={handleDisconnectWallet}
+                      disabled={isDisconnecting}
                     >
-                      <Unlink className="h-4 w-4 text-red-400" />
+                      {isDisconnecting ? (
+                        <Loader2 className="h-4 w-4 text-red-400 animate-spin" />
+                      ) : (
+                        <Unlink className="h-4 w-4 text-red-400" />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -537,191 +772,33 @@ const ProfileSection = ({ user, refreshUserData }) => {
         </motion.div>
 
         {/* Help Button*/}
-        <div className="fixed top-4 right-4 z-50 rounded-full">
+        <div className="fixed top-4 right-4 z-40 rounded-full">
           <Button
-            className="bg-green-600 text-white rounded-full p-2"
+            className="bg-green-600 hover:bg-green-700 text-white rounded-full p-2 shadow-lg hover:shadow-xl transition-all duration-300"
             onClick={() => {
               window.open(`https://t.me/${adminUsername}`, "_blank");
             }}
+            aria-label="Contact Admin"
           >
             <HelpCircle className="h-5 w-5" />
           </Button>
         </div>
 
         {/* Wallet Input Dialog */}
-        {showWalletDialog && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-600/50 text-white w-full max-w-sm p-4 rounded-2xl shadow-2xl relative"
-            >
-              <button
-                className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
-                onClick={() => setShowWalletDialog(false)}
-              >
-                <X className="w-6 h-6" />
-              </button>
-              <h2 className="text-lg font-bold mb-4 text-center">
-                Connect TON Wallet
-              </h2>
-              <Input
-                value={walletInput}
-                onChange={(e) => setWalletInput(e.target.value)}
-                placeholder="EQ... or UQ..."
-                className="mb-4 h-10 text-white placeholder:text-gray-400 bg-gray-800/50 border border-gray-600/50 rounded-xl focus:border-blue-500 transition-colors"
-              />
-              <Button
-                className="w-full h-10 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 rounded-xl font-semibold"
-                onClick={handleConnectWallet}
-              >
-                <LinkIcon className="w-5 h-5 mr-2" /> Connect Wallet
-              </Button>
-            </motion.div>
-          </div>
-        )}
+        <WalletDialog
+          isOpen={showWalletDialog}
+          onClose={() => setShowWalletDialog(false)}
+          onConnect={handleConnectWallet}
+        />
 
         {/* Withdraw Dialog */}
-        {showWithdrawDialog && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-600/50 text-white w-full max-w-sm p-4 rounded-2xl shadow-2xl relative max-h-[80vh] overflow-y-auto"
-            >
-              <button
-                className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors z-10"
-                onClick={() => setShowWithdrawDialog(false)}
-              >
-                <X className="w-6 h-6" />
-              </button>
-              <h2 className="text-lg font-bold mb-4 text-center">
-                Withdraw STON
-              </h2>
-
-              {/* Manual Verification Notice */}
-              <div className="bg-gradient-to-r from-yellow-600/20 to-orange-600/20 border border-yellow-500/50 rounded-xl p-2 mb-4">
-                <p className="text-yellow-300 text-xs text-center">
-                  ⚠️ All withdrawals require manual verification by admin before
-                  processing.
-                </p>
-              </div>
-
-              {user.wallet ? (
-                <>
-                  {/* Wallet Address Display */}
-                  <div className="mb-4">
-                    <p className="text-sm text-gray-400 mb-1 font-medium">
-                      Withdrawal Address:
-                    </p>
-                    <div className="bg-gray-800/50 border border-gray-600/50 p-2 rounded-xl">
-                      <p className="text-xs font-mono text-white break-all">
-                        {user.wallet}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Amount Input */}
-                  <div className="mb-4">
-                    <p className="text-sm text-gray-400 mb-1 font-medium">
-                      Amount to Withdraw:
-                    </p>
-                    <div className="relative">
-                      <Input
-                        type="number"
-                        value={withdrawAmount}
-                        onChange={(e) => setWithdrawAmount(e.target.value)}
-                        placeholder="Enter STON amount"
-                        className="h-10 text-white placeholder:text-gray-400 bg-gray-800/50 border border-gray-600/50 rounded-xl pr-20 focus:border-blue-500"
-                      />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="absolute right-2 top-2 h-8 px-3 text-xs bg-blue-600/20 border-blue-500/50 text-blue-400 hover:bg-blue-600/30"
-                        onClick={handleMaxClick}
-                      >
-                        Max
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Balance Display */}
-                  <div className="mb-4">
-                    <div className="bg-gradient-to-r from-green-600/20 to-emerald-600/20 border border-green-500/50 rounded-xl p-2">
-                      <p className="text-sm text-gray-300 text-center">
-                        Available Balance
-                      </p>
-                      <p className="text-lg font-bold text-white text-center">
-                        {user.balance?.toLocaleString() || "0"} STON
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* STON to TON Conversion */}
-                  <div className="mb-4">
-                    <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/50 rounded-xl p-2">
-                      <p className="text-blue-300 text-sm mb-1 text-center font-medium">
-                        Auto Conversion:
-                      </p>
-                      <p className="text-white font-bold text-lg text-center">
-                        {withdrawAmount || "0"} STON ={" "}
-                        {stonToTon(withdrawAmount)} TON
-                      </p>
-                      <p className="text-xs text-gray-400 mt-1 text-center">
-                        Rate: 10,000,000 STON = 1 TON
-                      </p>
-                      <p className="text-xs text-yellow-400 mt-1 text-center">
-                        Minimum: 10,000,000 STON (1 TON)
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Withdraw Button */}
-                  <Button
-                    className="w-full h-10 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                    onClick={handleWithdraw}
-                    disabled={
-                      verifying ||
-                      !withdrawAmount ||
-                      parseFloat(withdrawAmount) < 10000000 ||
-                      parseFloat(withdrawAmount) > (user.balance || 0)
-                    }
-                  >
-                    {verifying ? (
-                      <>
-                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      "Request Withdrawal"
-                    )}
-                  </Button>
-                </>
-              ) : (
-                <div className="text-center py-8">
-                  <Wallet className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-red-500 mb-4">
-                    Please set your wallet address first via the wallet
-                    connection feature.
-                  </p>
-                  <Button
-                    variant="outline"
-                    className="w-full h-10 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-2xl"
-                    onClick={() => {
-                      setShowWithdrawDialog(false);
-                      setShowWalletDialog(true);
-                    }}
-                  >
-                    <Wallet className="mr-2 h-5 w-5" />
-                    Connect Wallet
-                  </Button>
-                </div>
-              )}
-            </motion.div>
-          </div>
-        )}
+        <WithdrawDialog
+          isOpen={showWithdrawDialog}
+          onClose={() => setShowWithdrawDialog(false)}
+          user={user}
+          onWithdraw={handleWithdraw}
+          stonToTon={stonToTon}
+        />
 
         {/* Withdrawal History Dialog */}
         {showHistoryDialog && (
@@ -735,6 +812,7 @@ const ProfileSection = ({ user, refreshUserData }) => {
               <button
                 className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors z-10"
                 onClick={() => setShowHistoryDialog(false)}
+                aria-label="Close dialog"
               >
                 <X className="w-6 h-6" />
               </button>
