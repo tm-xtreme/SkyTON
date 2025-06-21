@@ -10,7 +10,7 @@ import * as monetag from './networks/monetag';
 // Configuration for ad networks
 const AD_CONFIG = {
   adsgram: {
-    blockId: import.meta.env.VITE_ADSGRAM_BLOCK_ID,
+    blockId: int-12059 // import.meta.env.VITE_ADSGRAM_BLOCK_ID,
     enabled: import.meta.env.VITE_ADSGRAM_ENABLED === 'true',
   },
   monetag: {
