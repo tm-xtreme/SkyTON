@@ -14,7 +14,7 @@ const AD_CONFIG = {
     enabled: import.meta.env.VITE_ADSGRAM_ENABLED === 'true',
   },
   monetag: {
-    publisherId: import.meta.env.VITE_MONETAG_PUBLISHER_ID,
+    zoneId: import.meta.env.VITE_MONETAG_ZONE_ID, // Changed from publisherId to zoneId
     enabled: import.meta.env.VITE_MONETAG_ENABLED === 'true',
   },
   // Add more network configs here
@@ -37,7 +37,7 @@ const adNetworks = [
     showAd: monetag.showAd,
     isAvailable: () => {
       return AD_CONFIG.monetag.enabled && 
-             AD_CONFIG.monetag.publisherId && 
+             AD_CONFIG.monetag.zoneId && // Changed from publisherId to zoneId
              monetag.isAvailable();
     },
     config: AD_CONFIG.monetag,
@@ -47,11 +47,18 @@ const adNetworks = [
 
 let lastNetworkIndex = -1;
 let isAdLoading = false;
+let initializationAttempted = false;
 
 /**
  * Initialize ad networks on app start
  */
 export function initializeAdNetworks() {
+  if (initializationAttempted) {
+    console.log('Ad networks already initialized');
+    return;
+  }
+  
+  initializationAttempted = true;
   console.log('Initializing ad networks...');
   
   // Wait a bit for scripts to load
@@ -59,17 +66,25 @@ export function initializeAdNetworks() {
     adNetworks.forEach(network => {
       if (network.config.enabled) {
         try {
+          console.log(`Initializing ${network.name}...`);
+          
           if (network.name === 'adsgram') {
             adsgram.initialize(network.config);
           } else if (network.name === 'monetag') {
             monetag.initialize(network.config);
           }
-          console.log(`${network.name} initialized successfully`);
+          
+          console.log(`${network.name} initialization completed`);
         } catch (error) {
           console.error(`Failed to initialize ${network.name}:`, error);
         }
+      } else {
+        console.log(`${network.name} is disabled in configuration`);
       }
     });
+    
+    // Log final status
+    console.log('Ad networks initialization finished. Status:', getAdNetworkStatus());
   }, 1000); // Give scripts time to load
 }
 
@@ -79,7 +94,14 @@ export function initializeAdNetworks() {
  * @param {{onComplete: function, onClose: function, onError: function}} handlers
  */
 export function showRewardedAd(handlers) {
+  // Validate handlers
+  if (!handlers || typeof handlers !== 'object') {
+    console.error('Invalid handlers provided to showRewardedAd');
+    return;
+  }
+
   if (isAdLoading) {
+    console.log('Ad is already loading, rejecting new request');
     if (handlers.onError) {
       handlers.onError("Ad is already loading. Please wait.");
     }
@@ -89,6 +111,8 @@ export function showRewardedAd(handlers) {
   const availableNetworks = adNetworks.filter(network => 
     network.config.enabled && network.isAvailable()
   );
+
+  console.log(`Found ${availableNetworks.length} available ad networks`);
 
   if (availableNetworks.length === 0) {
     console.log('No ad networks available. Status:', getAdNetworkStatus());
@@ -105,6 +129,7 @@ export function showRewardedAd(handlers) {
   const tryNextNetwork = () => {
     if (attemptedNetworks >= totalNetworks) {
       isAdLoading = false;
+      console.log('All ad networks exhausted');
       if (handlers.onError) {
         handlers.onError("All ad networks failed to load ads. Please try again later.");
       }
@@ -122,12 +147,24 @@ export function showRewardedAd(handlers) {
         onComplete: () => {
           isAdLoading = false;
           console.log(`Ad completed successfully from ${network.name}`);
-          if (handlers.onComplete) handlers.onComplete();
+          if (handlers.onComplete) {
+            try {
+              handlers.onComplete();
+            } catch (error) {
+              console.error('Error in onComplete handler:', error);
+            }
+          }
         },
         onClose: () => {
           isAdLoading = false;
           console.log(`Ad closed from ${network.name}`);
-          if (handlers.onClose) handlers.onClose();
+          if (handlers.onClose) {
+            try {
+              handlers.onClose();
+            } catch (error) {
+              console.error('Error in onClose handler:', error);
+            }
+          }
         },
         onError: (error) => {
           console.error(`Ad error from ${network.name}:`, error);
@@ -149,27 +186,79 @@ export function showRewardedAd(handlers) {
  * Check if any ad network is available
  */
 export function isAdAvailable() {
-  return adNetworks.some(network => 
+  const available = adNetworks.some(network => 
     network.config.enabled && network.isAvailable()
   );
+  console.log('Ad availability check:', available);
+  return available;
 }
 
 /**
  * Get status of all ad networks for debugging
  */
 export function getAdNetworkStatus() {
-  return adNetworks.map(network => ({
-    name: network.name,
-    enabled: network.config.enabled,
-    available: network.isAvailable(),
-    sdkLoaded: network.name === 'adsgram' ? 
-      typeof window.Adsgram !== "undefined" : 
-      typeof window.monetag !== "undefined",
-    config: {
-      ...network.config,
-      // Hide sensitive data in logs
-      blockId: network.config.blockId ? '***' + network.config.blockId.slice(-4) : undefined,
-      publisherId: network.config.publisherId ? '***' + network.config.publisherId.slice(-4) : undefined,
+  return adNetworks.map(network => {
+    const status = {
+      name: network.name,
+      enabled: network.config.enabled,
+      available: false,
+      sdkLoaded: false,
+      config: {}
+    };
+
+    try {
+      status.available = network.isAvailable();
+      
+      if (network.name === 'adsgram') {
+        status.sdkLoaded = typeof window.Adsgram !== "undefined";
+        status.config = {
+          blockId: network.config.blockId ? '***' + network.config.blockId.slice(-4) : 'Not set'
+        };
+      } else if (network.name === 'monetag') {
+        status.sdkLoaded = typeof window.monetag !== "undefined";
+        status.config = {
+          zoneId: network.config.zoneId ? '***' + network.config.zoneId.slice(-4) : 'Not set'
+        };
+      }
+    } catch (error) {
+      console.error(`Error getting status for ${network.name}:`, error);
+      status.error = error.message;
     }
-  }));
+
+    return status;
+  });
+}
+
+/**
+ * Force re-initialization of ad networks (for debugging)
+ */
+export function reinitializeAdNetworks() {
+  console.log('Force re-initializing ad networks...');
+  initializationAttempted = false;
+  isAdLoading = false;
+  lastNetworkIndex = -1;
+  initializeAdNetworks();
+}
+
+/**
+ * Get detailed debug information
+ */
+export function getDebugInfo() {
+  return {
+    initializationAttempted,
+    isAdLoading,
+    lastNetworkIndex,
+    availableNetworks: adNetworks.filter(n => n.config.enabled && n.isAvailable()).length,
+    totalNetworks: adNetworks.length,
+    windowObjects: {
+      Adsgram: typeof window.Adsgram,
+      monetag: typeof window.monetag
+    },
+    config: {
+      adsgramEnabled: AD_CONFIG.adsgram.enabled,
+      adsgramBlockId: AD_CONFIG.adsgram.blockId ? 'Set' : 'Not set',
+      monetagEnabled: AD_CONFIG.monetag.enabled,
+      monetagZoneId: AD_CONFIG.monetag.zoneId ? 'Set' : 'Not set'
+    }
+  };
 }
