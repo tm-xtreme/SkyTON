@@ -190,6 +190,7 @@ function App() {
     );
   }
 
+  
   return (
     <UserContext.Provider value={{ user: currentUser, setUser: setCurrentUser }}>
       <div className="min-h-screen flex flex-col bg-[#0f0f0f] text-white">
@@ -210,6 +211,7 @@ function App() {
     </UserContext.Provider>
   );
 }
+
 
 export default function WrappedApp() {
   return (
