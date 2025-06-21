@@ -349,8 +349,8 @@ export default function StonDropGame() {
             <img
               src={userData.profilePicUrl}
               alt="Profile"
-              className="w-8 h-8 rounded-full object-cover border border-white/30"
-              src="https://storage.googleapis.com/workspace-0f70711f-8b4e-4d94-86f1-2a93ccde5887/image/4c9293ed-4134-496c-932f-0996c58e9656.png"/>
+              className="w-8 h-8 rounded-full object-cover border border-white/30"              
+          />
           ) : (
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-xs font-bold">
               {userData?.firstName?.charAt(0) || userData?.username?.charAt(0) || 'U'}
