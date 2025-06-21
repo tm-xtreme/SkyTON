@@ -10,7 +10,7 @@ import * as monetag from './networks/monetag';
 // Configuration for ad networks
 const AD_CONFIG = {
   adsgram: {
-    blockId: int-12059, // import.meta.env.VITE_ADSGRAM_BLOCK_ID,
+    blockId: import.meta.env.VITE_ADSGRAM_BLOCK_ID,
     enabled: import.meta.env.VITE_ADSGRAM_ENABLED === 'true',
   },
   monetag: {
@@ -28,7 +28,7 @@ const adNetworks = [
     isAvailable: () => {
       return AD_CONFIG.adsgram.enabled && 
              AD_CONFIG.adsgram.blockId && 
-             typeof window.Adsgram !== "undefined";
+             adsgram.isAvailable();
     },
     config: AD_CONFIG.adsgram,
   },
@@ -38,7 +38,7 @@ const adNetworks = [
     isAvailable: () => {
       return AD_CONFIG.monetag.enabled && 
              AD_CONFIG.monetag.publisherId && 
-             typeof window.monetag !== "undefined";
+             monetag.isAvailable();
     },
     config: AD_CONFIG.monetag,
   },
@@ -54,21 +54,23 @@ let isAdLoading = false;
 export function initializeAdNetworks() {
   console.log('Initializing ad networks...');
   
-  // Initialize each enabled network
-  adNetworks.forEach(network => {
-    if (network.config.enabled) {
-      try {
-        if (network.name === 'adsgram') {
-          adsgram.initialize(network.config);
-        } else if (network.name === 'monetag') {
-          monetag.initialize(network.config);
+  // Wait a bit for scripts to load
+  setTimeout(() => {
+    adNetworks.forEach(network => {
+      if (network.config.enabled) {
+        try {
+          if (network.name === 'adsgram') {
+            adsgram.initialize(network.config);
+          } else if (network.name === 'monetag') {
+            monetag.initialize(network.config);
+          }
+          console.log(`${network.name} initialized successfully`);
+        } catch (error) {
+          console.error(`Failed to initialize ${network.name}:`, error);
         }
-        console.log(`${network.name} initialized successfully`);
-      } catch (error) {
-        console.error(`Failed to initialize ${network.name}:`, error);
       }
-    }
-  });
+    });
+  }, 1000); // Give scripts time to load
 }
 
 /**
@@ -89,8 +91,9 @@ export function showRewardedAd(handlers) {
   );
 
   if (availableNetworks.length === 0) {
+    console.log('No ad networks available. Status:', getAdNetworkStatus());
     if (handlers.onError) {
-      handlers.onError("No ad networks available. Please try again later.");
+      handlers.onError("No ads available right now. Please try again later.");
     }
     return;
   }
@@ -103,7 +106,7 @@ export function showRewardedAd(handlers) {
     if (attemptedNetworks >= totalNetworks) {
       isAdLoading = false;
       if (handlers.onError) {
-        handlers.onError("All ad networks failed to load ads.");
+        handlers.onError("All ad networks failed to load ads. Please try again later.");
       }
       return;
     }
@@ -112,7 +115,7 @@ export function showRewardedAd(handlers) {
     const network = availableNetworks[lastNetworkIndex];
     attemptedNetworks++;
 
-    console.log(`Attempting to show ad from ${network.name}...`);
+    console.log(`Attempting to show ad from ${network.name} (attempt ${attemptedNetworks}/${totalNetworks})...`);
 
     try {
       network.showAd({
@@ -129,13 +132,13 @@ export function showRewardedAd(handlers) {
         onError: (error) => {
           console.error(`Ad error from ${network.name}:`, error);
           // Try next network if current one fails
-          setTimeout(tryNextNetwork, 100);
+          setTimeout(tryNextNetwork, 500);
         }
       });
     } catch (error) {
       console.error(`Exception in ${network.name}:`, error);
       // Try next network if current one throws exception
-      setTimeout(tryNextNetwork, 100);
+      setTimeout(tryNextNetwork, 500);
     }
   };
 
@@ -152,13 +155,21 @@ export function isAdAvailable() {
 }
 
 /**
- * Get status of all ad networks
+ * Get status of all ad networks for debugging
  */
 export function getAdNetworkStatus() {
   return adNetworks.map(network => ({
     name: network.name,
     enabled: network.config.enabled,
     available: network.isAvailable(),
-    config: network.config
+    sdkLoaded: network.name === 'adsgram' ? 
+      typeof window.Adsgram !== "undefined" : 
+      typeof window.monetag !== "undefined",
+    config: {
+      ...network.config,
+      // Hide sensitive data in logs
+      blockId: network.config.blockId ? '***' + network.config.blockId.slice(-4) : undefined,
+      publisherId: network.config.publisherId ? '***' + network.config.publisherId.slice(-4) : undefined,
+    }
   }));
 }
