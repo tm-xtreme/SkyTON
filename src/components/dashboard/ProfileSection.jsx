@@ -650,7 +650,6 @@ const ProfileSection = ({ user, refreshUserData }) => {
                 </span>
               </div>
               <p className="text-lg font-bold text-white">{user.energy || 0}</p>
-              <p className="text-xs text-yellow-300">Points</p>
               {/* NEW BUTTON FOR EARNING ENERGY */}
               <Button
                 size="sm"
