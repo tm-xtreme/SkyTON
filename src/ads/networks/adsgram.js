@@ -2,67 +2,34 @@
 
 let adsgramInstance = null;
 let isInitialized = false;
+let config = null;
 
 /**
  * Initialize Adsgram SDK
- * @param {Object} config - Configuration object with blockId
+ * @param {Object} adsConfig - Configuration object with blockId
  */
-export function initialize(config) {
-  if (isInitialized || !config.blockId) {
+export function initialize(adsConfig) {
+  if (isInitialized || !adsConfig.blockId) {
     return;
   }
 
-  try {
-    // Load Adsgram SDK if not already loaded
-    if (typeof window.Adsgram === "undefined") {
-      loadAdsgramSDK().then(() => {
-        initializeAdsgram(config);
-      }).catch(error => {
-        console.error('Failed to load Adsgram SDK:', error);
-      });
-    } else {
-      initializeAdsgram(config);
-    }
-  } catch (error) {
-    console.error('Adsgram initialization error:', error);
-  }
-}
+  config = adsConfig;
 
-/**
- * Load Adsgram SDK dynamically
- */
-function loadAdsgramSDK() {
-  return new Promise((resolve, reject) => {
-    if (typeof window.Adsgram !== "undefined") {
-      resolve();
+  try {
+    // Check if Adsgram SDK is loaded
+    if (typeof window.Adsgram === "undefined") {
+      console.error('Adsgram SDK not found. Make sure the script is loaded in index.html');
       return;
     }
 
-    const script = document.createElement('script');
-    script.src = 'https://sad.adsgram.ai/js/sad.min.js';
-    script.async = true;
-    script.onload = () => {
-      console.log('Adsgram SDK loaded successfully');
-      resolve();
-    };
-    script.onerror = () => {
-      reject(new Error('Failed to load Adsgram SDK'));
-    };
-    document.head.appendChild(script);
-  });
-}
-
-/**
- * Initialize Adsgram instance
- */
-function initializeAdsgram(config) {
-  try {
+    // Initialize Adsgram instance
     adsgramInstance = window.Adsgram.init({
       blockId: config.blockId,
       debug: import.meta.env.DEV, // Enable debug in development
     });
+    
     isInitialized = true;
-    console.log('Adsgram initialized with block ID:', config.blockId);
+    console.log('Adsgram initialized successfully with block ID:', config.blockId);
   } catch (error) {
     console.error('Failed to initialize Adsgram:', error);
   }
@@ -74,25 +41,36 @@ function initializeAdsgram(config) {
  */
 export function showAd({ onComplete, onClose, onError }) {
   if (!isInitialized || !adsgramInstance) {
-    if (onError) onError('Adsgram not initialized');
+    if (onError) onError('Adsgram not initialized. Please check your configuration.');
     return;
   }
 
   try {
+    console.log('Showing Adsgram ad...');
+    
     adsgramInstance.show().then(() => {
       // Ad completed successfully
+      console.log('Adsgram ad completed successfully');
       if (onComplete) onComplete();
     }).catch((error) => {
       console.error('Adsgram ad error:', error);
+      
+      // Handle specific Adsgram errors
+      let errorMessage = 'Failed to show ad';
+      
       if (error.message === 'AdBlock') {
-        if (onError) onError('Ad blocker detected. Please disable it to watch ads.');
+        errorMessage = 'Ad blocker detected. Please disable it to watch ads.';
       } else if (error.message === 'NotReady') {
-        if (onError) onError('Ad not ready. Please try again in a moment.');
+        errorMessage = 'Ad not ready. Please try again in a moment.';
       } else if (error.message === 'NotAllowed') {
-        if (onError) onError('Ads not allowed in this context.');
+        errorMessage = 'Ads not allowed in this context.';
+      } else if (error.message === 'NoAds') {
+        errorMessage = 'No ads available right now.';
       } else {
-        if (onError) onError(`Adsgram error: ${error.message || 'Unknown error'}`);
+        errorMessage = `Adsgram error: ${error.message || 'Unknown error'}`;
       }
+      
+      if (onError) onError(errorMessage);
     });
   } catch (error) {
     console.error('Adsgram show error:', error);
@@ -104,5 +82,19 @@ export function showAd({ onComplete, onClose, onError }) {
  * Check if Adsgram is available
  */
 export function isAvailable() {
-  return isInitialized && adsgramInstance && typeof window.Adsgram !== "undefined";
+  return typeof window.Adsgram !== "undefined" && 
+         isInitialized && 
+         adsgramInstance !== null;
+}
+
+/**
+ * Get Adsgram status for debugging
+ */
+export function getStatus() {
+  return {
+    sdkLoaded: typeof window.Adsgram !== "undefined",
+    initialized: isInitialized,
+    instanceReady: adsgramInstance !== null,
+    blockId: config?.blockId ? '***' + config.blockId.slice(-4) : 'Not set'
+  };
 }
