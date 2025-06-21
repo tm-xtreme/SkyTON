@@ -1,17 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle, CalendarCheck, HelpCircle, Clock, Gamepad2, ArrowRight } from 'lucide-react';
+import { Loader2, CheckCircle, CalendarCheck, HelpCircle, Clock, Gamepad2, ArrowRight, Zap } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import {
   completeTask,
   performCheckIn,
   requestManualVerification,
   getCurrentUser,
-  isCheckInDoneToday
+  isCheckInDoneToday,
+  updateUserEnergy
 } from '@/data';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { showRewardedAd } from '@/ads/adsController';
+
+const ENERGY_REWARD_AMOUNT = 10; // Set how much energy to grant per ad
 
 const itemVariants = {
   hidden: { opacity: 0, y: 10 },
@@ -21,88 +25,213 @@ const itemVariants = {
 const TasksSection = ({ tasks = [], user = {}, refreshUserData, isLoading }) => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
   const [clickedTasks, setClickedTasks] = useState({});
   const [verifying, setVerifying] = useState({});
+  const [isEnergyAdLoading, setIsEnergyAdLoading] = useState(false);
 
-  const checkInDone = isCheckInDoneToday(user?.lastCheckIn);
+  const adminChatId = import.meta.env.VITE_ADMIN_CHAT_ID;
 
-  const handlePlayGame = () => {
+  // Memoized calculations
+  const checkInDone = useMemo(() => isCheckInDoneToday(user?.lastCheckIn), [user?.lastCheckIn]);
+  
+  const completedTasksCount = useMemo(() => {
+    return user.tasks ? Object.values(user.tasks).filter(Boolean).length : 0;
+  }, [user.tasks]);
+
+  const availableTasksCount = useMemo(() => {
+    return tasks.filter(t => t.active && !user?.tasks?.[t.id]).length;
+  }, [tasks, user?.tasks]);
+
+  const pendingTasksCount = useMemo(() => {
+    return user?.pendingVerificationTasks?.length || 0;
+  }, [user?.pendingVerificationTasks]);
+
+  // Check for highlight parameter
+  useEffect(() => {
+    if (location.search.includes('highlight=energy-ad')) {
+      const element = document.getElementById('energy-ad-task');
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, [location.search]);
+
+  const handlePlayGame = useCallback(() => {
     if (user?.id) {
       sessionStorage.setItem('gameUserId', user.id);
       navigate('/game');
     }
-  };
+  }, [user?.id, navigate]);
 
-  const handleGoToTask = (taskId, url) => {
+  const handleGoToTask = useCallback((taskId, url) => {
     window.open(url, '_blank');
     setClickedTasks(prev => ({ ...prev, [taskId]: true }));
-  };
+  }, []);
 
-  const handleCheckIn = async () => {
+  const handleCheckIn = useCallback(async () => {
     if (!user?.id) return;
     setVerifying(v => ({ ...v, checkin: true }));
-    const result = await performCheckIn(user.id);
-    if (result.success) {
-      const updatedUser = await getCurrentUser(user.id);
-      if (updatedUser) refreshUserData(updatedUser);
-      toast({ 
-        title: 'Daily Check-in Successful!', 
-        description: `+${result.reward} STON`, 
-        variant: 'success', 
-        className: "bg-[#1a1a1a] text-white" 
-      });
-    } else {
+    
+    try {
+      const result = await performCheckIn(user.id);
+      if (result.success) {
+        const updatedUser = await getCurrentUser(user.id);
+        if (updatedUser) refreshUserData(updatedUser);
+        toast({ 
+          title: 'Daily Check-in Successful!', 
+          description: `+${result.reward} STON`, 
+          variant: 'success', 
+          className: "bg-[#1a1a1a] text-white" 
+        });
+      } else {
+        toast({ 
+          title: 'Check-in Failed', 
+          description: result.message || 'Try again later.', 
+          variant: 'destructive', 
+          className: "bg-[#1a1a1a] text-white" 
+        });
+      }
+    } catch (error) {
+      console.error('Check-in error:', error);
       toast({ 
         title: 'Check-in Failed', 
-        description: result.message || 'Try again later.', 
+        description: 'Network error. Please try again.', 
         variant: 'destructive', 
         className: "bg-[#1a1a1a] text-white" 
       });
+    } finally {
+      setVerifying(v => ({ ...v, checkin: false }));
     }
-    setVerifying(v => ({ ...v, checkin: false }));
-  };
+  }, [user?.id, refreshUserData, toast]);
 
-  const sendAdminNotification = async (message) => {
+  // Secure admin notification via backend API
+  const sendAdminNotification = useCallback(async (message) => {
     try {
-      await fetch(`https://api.telegram.org/bot${import.meta.env.VITE_TG_BOT_TOKEN}/sendMessage`, {
+      const response = await fetch('/api/notify-admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: '5063003944',
-          text: message,
-          parse_mode: 'HTML'
-        })
+        body: JSON.stringify({ message, adminChatId }),
       });
+      
+      if (!response.ok) {
+        throw new Error('Failed to send notification');
+      }
+      
+      return true;
     } catch (err) {
       console.error("Failed to send admin notification:", err);
+      toast({
+        title: "Warning",
+        description: "Admin notification failed, but your action was completed.",
+        variant: "warning",
+        className: "bg-[#1a1a1a] text-white",
+      });
+      return false;
     }
-  };
+  }, [adminChatId, toast]);
 
-  const handleVerificationClick = async (task) => {
+  const handleEarnEnergyAd = useCallback(async () => {
+    if (!user?.id) {
+      toast({
+        title: "Error",
+        description: "User not found. Please refresh the page.",
+        variant: 'destructive',
+        className: "bg-[#1a1a1a] text-white"
+      });
+      return;
+    }
+
+    setIsEnergyAdLoading(true);
+
+    showRewardedAd({
+      onComplete: async () => {
+        try {
+          // Grant energy to user
+          await updateUserEnergy(user.id, ENERGY_REWARD_AMOUNT);
+          const updatedUser = await getCurrentUser(user.id);
+          if (updatedUser) refreshUserData(updatedUser);
+          
+          // Notify admin
+          const userMention = user.username ? `@${user.username}` : `User ${user.id}`;
+          await sendAdminNotification(
+            `⚡ <b>Energy Ad Completed</b>\n${userMention} watched an ad and earned <b>+${ENERGY_REWARD_AMOUNT} energy</b>`
+          );
+
+          toast({
+            title: `Energy Earned!`,
+            description: `+${ENERGY_REWARD_AMOUNT} energy added to your account.`,
+            variant: 'success',
+            className: "bg-[#1a1a1a] text-white"
+          });
+        } catch (error) {
+          console.error('Energy reward error:', error);
+          toast({
+            title: "Reward Failed",
+            description: "Failed to grant energy. Please try again.",
+            variant: 'destructive',
+            className: "bg-[#1a1a1a] text-white"
+          });
+        } finally {
+          setIsEnergyAdLoading(false);
+        }
+      },
+      onClose: () => {
+        setIsEnergyAdLoading(false);
+        toast({
+          title: "Ad not completed",
+          description: "Watch the full ad to earn energy.",
+          variant: 'destructive',
+          className: "bg-[#1a1a1a] text-white"
+        });
+      },
+      onError: (err) => {
+        setIsEnergyAdLoading(false);
+        toast({
+          title: "No Ad Available",
+          description: err || "Try again later.",
+          variant: 'destructive',
+          className: "bg-[#1a1a1a] text-white"
+        });
+      }
+    });
+  }, [user?.id, user?.username, refreshUserData, sendAdminNotification, toast]);
+
+  const handleVerificationClick = useCallback(async (task) => {
     if (!user?.id || !task?.id) return;
 
     setVerifying(v => ({ ...v, [task.id]: true }));
 
     const isCompleted = user.tasks?.[task.id] === true;
     const isPending = user.pendingVerificationTasks?.includes(task.id);
+    
     if (isCompleted || isPending) {
       setVerifying(v => ({ ...v, [task.id]: false }));
       return;
     }
 
-    if (task.verificationType === 'auto' && task.type === 'telegram_join') {
-      try {
-        const apiUrl = `https://api.telegram.org/bot${import.meta.env.VITE_TG_BOT_TOKEN}/getChatMember?chat_id=@${task.target.replace('@', '')}&user_id=${user.id}`;
-        const res = await fetch(apiUrl);
-        const data = await res.json();
+    try {
+      if (task.verificationType === 'auto' && task.type === 'telegram_join') {
+        try {
+          const response = await fetch('/api/verify-telegram-join', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: user.id,
+              channelUsername: task.target.replace('@', ''),
+              taskId: task.id
+            }),
+          });
 
-        if (data.ok) {
-          const status = data.result.status;
-          if (['member', 'administrator', 'creator'].includes(status)) {
+          const data = await response.json();
+
+          if (data.success && data.isMember) {
             const verified = await completeTask(user.id, task.id);
             if (verified) {
               const userMention = user.username ? `@${user.username}` : `User ${user.id}`;
-              await sendAdminNotification(`✅ <b>Auto-Verification Success</b>\n${userMention} successfully joined <b>${task.title}</b> (${task.target})\nReward: +${task.reward} STON`);
+              await sendAdminNotification(
+                `✅ <b>Auto-Verification Success</b>\n${userMention} successfully joined <b>${task.title}</b> (${task.target})\nReward: +${task.reward} STON`
+              );
               
               const updatedUser = await getCurrentUser(user.id);
               if (updatedUser) refreshUserData(updatedUser);
@@ -115,7 +244,7 @@ const TasksSection = ({ tasks = [], user = {}, refreshUserData, isLoading }) => 
               setVerifying(v => ({ ...v, [task.id]: false }));
               return;
             }
-          } else {
+          } else if (!data.isMember) {
             toast({ 
               title: 'Not Verified', 
               description: 'Please join the channel first.', 
@@ -125,21 +254,14 @@ const TasksSection = ({ tasks = [], user = {}, refreshUserData, isLoading }) => 
             setClickedTasks(prev => ({ ...prev, [task.id]: false }));
             setVerifying(v => ({ ...v, [task.id]: false }));
             return;
+          } else {
+            throw new Error(data.error || 'Verification failed');
           }
-        } else if (data.error_code === 400 || data.error_code === 403) {
-          await sendAdminNotification(`❗ <b>Bot Error</b>\nBot is not an admin or failed to access @${task.target}. Please ensure it's added correctly.`);
+        } catch (err) {
+          console.error('Telegram verification error:', err);
           toast({ 
-            title: 'Bot Error', 
-            description: 'Something Went Wrong, Please Wait and Try Again Later...', 
-            variant: 'destructive', 
-            className: "bg-[#1a1a1a] text-white" 
-          });
-          setVerifying(v => ({ ...v, [task.id]: false }));
-          return;
-        } else {
-          toast({ 
-            title: 'Telegram Error', 
-            description: 'Failed to verify. Try again.', 
+            title: 'Verification Error', 
+            description: 'Failed to verify. Please try again later.', 
             variant: 'destructive', 
             className: "bg-[#1a1a1a] text-white" 
           });
@@ -147,53 +269,56 @@ const TasksSection = ({ tasks = [], user = {}, refreshUserData, isLoading }) => 
           setVerifying(v => ({ ...v, [task.id]: false }));
           return;
         }
-      } catch (err) {
-        toast({ 
-          title: 'Network Error', 
-          description: 'Could not reach Telegram servers.', 
-          variant: 'destructive', 
-          className: "bg-[#1a1a1a] text-white" 
+      }
+
+      let success = false;
+      if (task.verificationType === 'auto') {
+        success = await completeTask(user.id, task.id);
+        if (success) {
+          const userMention = user.username ? `@${user.username}` : `User ${user.id}`;
+          await sendAdminNotification(
+            `✅ <b>Auto-Verification Success</b>\n${userMention} completed <b>${task.title}</b>\nReward: +${task.reward} STON`
+          );
+        }
+        toast({
+          title: success ? 'Task Verified!' : 'Verification Failed',
+          description: success ? `+${task.reward} STON` : 'Could not verify task completion.',
+          variant: success ? 'success' : 'destructive',
+          className: "bg-[#1a1a1a] text-white"
         });
-        setClickedTasks(prev => ({ ...prev, [task.id]: false }));
-        setVerifying(v => ({ ...v, [task.id]: false }));
-        return;
-      }
-    }
+      } else {
+        success = await requestManualVerification(user.id, task.id);
 
-    let success = false;
-    if (task.verificationType === 'auto') {
-      success = await completeTask(user.id, task.id);
-      if (success) {
-        const userMention = user.username ? `@${user.username}` : `User ${user.id}`;
-        await sendAdminNotification(`✅ <b>Auto-Verification Success</b>\n${userMention} completed <b>${task.title}</b>\nReward: +${task.reward} STON`);
+        if (success) {
+          const userMention = user.username ? `@${user.username}` : `User ${user.id}`;
+          await sendAdminNotification(
+            `🔍 <b>Manual Verification Request</b>\n${userMention} requested verification for <b>${task.title}</b>\nTarget: ${task.target || 'N/A'}\nReward: ${task.reward} STON`
+          );
+        }
+        toast({
+          title: success ? 'Verification Requested' : 'Request Failed',
+          description: success ? `"${task.title}" sent for review.` : 'Try again later.',
+          variant: success ? 'success' : 'destructive',
+          className: "bg-[#1a1a1a] text-white"
+        });
       }
-      toast({
-        title: success ? 'Task Verified!' : 'Verification Failed',
-        description: success ? `+${task.reward} STON` : 'Could not verify task completion.',
-        variant: success ? 'success' : 'destructive',
-        className: "bg-[#1a1a1a] text-white"
-      });
-    } else {
-      success = await requestManualVerification(user.id, task.id);
 
       if (success) {
-        const userMention = user.username ? `@${user.username}` : `User ${user.id}`;
-        await sendAdminNotification(`🔍 <b>Manual Verification Request</b>\n${userMention} requested verification for <b>${task.title}</b>\nTarget: ${task.target || 'N/A'}\nReward: ${task.reward} STON`);
+        const updatedUser = await getCurrentUser(user.id);
+        if (updatedUser) refreshUserData(updatedUser);
       }
+    } catch (error) {
+      console.error('Verification error:', error);
       toast({
-        title: success ? 'Verification Requested' : 'Request Failed',
-        description: success ? `"${task.title}" sent for review.` : 'Try again later.',
-        variant: success ? 'success' : 'destructive',
+        title: 'Error',
+        description: 'An unexpected error occurred. Please try again.',
+        variant: 'destructive',
         className: "bg-[#1a1a1a] text-white"
       });
+    } finally {
+      setVerifying(v => ({ ...v, [task.id]: false }));
     }
-
-    if (success) {
-      const updatedUser = await getCurrentUser(user.id);
-      if (updatedUser) refreshUserData(updatedUser);
-    }
-    setVerifying(v => ({ ...v, [task.id]: false }));
-  };
+  }, [user, refreshUserData, sendAdminNotification, toast]);
 
   return (
     <div
@@ -223,6 +348,41 @@ const TasksSection = ({ tasks = [], user = {}, refreshUserData, isLoading }) => 
               Available Tasks
             </h2>
             <p className="text-xs text-gray-400 mt-1">Complete tasks to earn STON rewards</p>
+          </motion.div>
+
+          {/* Energy Ad Task */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+            className="w-full"
+            id="energy-ad-task"
+          >
+            <div className={`bg-gradient-to-r from-yellow-600/20 to-yellow-800/20 border border-yellow-500/30 p-3 rounded-2xl flex items-center justify-between shadow-lg transition-all duration-300 mb-3 hover:scale-105 hover:shadow-xl ${
+              location.search.includes('highlight=energy-ad') ? 'ring-2 ring-yellow-400 animate-pulse' : ''
+            }`}>
+              <div className="flex items-center gap-3">
+                <div className="bg-yellow-500/20 p-2 rounded-xl">
+                  <Zap className="h-5 w-5 text-yellow-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">Earn Energy by Watching Ad</p>
+                  <p className="text-xs text-yellow-300">Watch a short ad to receive {ENERGY_REWARD_AMOUNT} energy points!</p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                onClick={handleEarnEnergyAd}
+                disabled={isEnergyAdLoading}
+                className="h-8 px-3 bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl disabled:opacity-50"
+              >
+                {isEnergyAdLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  'Watch Ad'
+                )}
+              </Button>
+            </div>
           </motion.div>
 
           {/* Play Game Card */}
@@ -297,6 +457,7 @@ const TasksSection = ({ tasks = [], user = {}, refreshUserData, isLoading }) => 
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-xs text-blue-400 hover:underline block truncate"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           {task.description || 'No description provided.'}
                         </a>
@@ -316,7 +477,7 @@ const TasksSection = ({ tasks = [], user = {}, refreshUserData, isLoading }) => 
                             size="sm"
                             onClick={handleCheckIn}
                             disabled={isCompleted || verifying.checkin}
-                            className="h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl"
+                            className="h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl disabled:opacity-50"
                           >
                             {verifying.checkin ? (
                               <Loader2 className="mr-1 h-4 w-4 animate-spin" />
@@ -395,21 +556,21 @@ const TasksSection = ({ tasks = [], user = {}, refreshUserData, isLoading }) => 
                 <div className="text-center flex-1">
                   <p className="text-xs text-gray-300">Completed</p>
                   <p className="text-lg font-bold text-white">
-                    {user.tasks ? Object.values(user.tasks).filter(Boolean).length : 0}
+                    {completedTasksCount}
                   </p>
                 </div>
                 <div className="w-px h-8 bg-purple-500/30"></div>
                 <div className="text-center flex-1">
                   <p className="text-xs text-gray-300">Available</p>
                   <p className="text-lg font-bold text-white">
-                    {tasks.filter(t => t.active && !user?.tasks?.[t.id]).length}
+                    {availableTasksCount}
                   </p>
                 </div>
                 <div className="w-px h-8 bg-purple-500/30"></div>
                 <div className="text-center flex-1">
                   <p className="text-xs text-gray-300">Pending</p>
                   <p className="text-lg font-bold text-white">
-                    {user?.pendingVerificationTasks?.length || 0}
+                    {pendingTasksCount}
                   </p>
                 </div>
               </div>
@@ -455,6 +616,7 @@ const TasksSection = ({ tasks = [], user = {}, refreshUserData, isLoading }) => 
                 <p>• Join Telegram channels for instant verification</p>
                 <p>• Manual tasks are reviewed by admins within 24 hours</p>
                 <p>• Play the game daily for extra STON rewards</p>
+                <p>• Watch ads to earn energy for more gameplay</p>
               </div>
             </div>
           </motion.div>
