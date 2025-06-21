@@ -2,67 +2,34 @@
 
 let monetagInstance = null;
 let isInitialized = false;
+let config = null;
 
 /**
  * Initialize Monetag SDK
- * @param {Object} config - Configuration object with publisherId
+ * @param {Object} adsConfig - Configuration object with publisherId
  */
-export function initialize(config) {
-  if (isInitialized || !config.publisherId) {
+export function initialize(adsConfig) {
+  if (isInitialized || !adsConfig.publisherId) {
     return;
   }
 
-  try {
-    // Load Monetag SDK if not already loaded
-    if (typeof window.monetag === "undefined") {
-      loadMonetagSDK().then(() => {
-        initializeMonetag(config);
-      }).catch(error => {
-        console.error('Failed to load Monetag SDK:', error);
-      });
-    } else {
-      initializeMonetag(config);
-    }
-  } catch (error) {
-    console.error('Monetag initialization error:', error);
-  }
-}
+  config = adsConfig;
 
-/**
- * Load Monetag SDK dynamically
- */
-function loadMonetagSDK() {
-  return new Promise((resolve, reject) => {
-    if (typeof window.monetag !== "undefined") {
-      resolve();
+  try {
+    // Check if Monetag SDK is loaded
+    if (typeof window.monetag === "undefined") {
+      console.error('Monetag SDK not found. Make sure the script is loaded in index.html');
       return;
     }
 
-    const script = document.createElement('script');
-    script.src = 'https://js.monetag.io/monetag.min.js';
-    script.async = true;
-    script.onload = () => {
-      console.log('Monetag SDK loaded successfully');
-      resolve();
-    };
-    script.onerror = () => {
-      reject(new Error('Failed to load Monetag SDK'));
-    };
-    document.head.appendChild(script);
-  });
-}
-
-/**
- * Initialize Monetag instance
- */
-function initializeMonetag(config) {
-  try {
+    // Initialize Monetag instance
     monetagInstance = window.monetag.init({
       publisherId: config.publisherId,
       debug: import.meta.env.DEV, // Enable debug in development
     });
+    
     isInitialized = true;
-    console.log('Monetag initialized with publisher ID:', config.publisherId);
+    console.log('Monetag initialized successfully with publisher ID:', config.publisherId);
   } catch (error) {
     console.error('Failed to initialize Monetag:', error);
   }
@@ -74,23 +41,41 @@ function initializeMonetag(config) {
  */
 export function showAd({ onComplete, onClose, onError }) {
   if (!isInitialized || !monetagInstance) {
-    if (onError) onError('Monetag not initialized');
+    if (onError) onError('Monetag not initialized. Please check your configuration.');
     return;
   }
 
   try {
+    console.log('Showing Monetag ad...');
+    
     monetagInstance.showRewardedAd({
       onReward: () => {
         // Ad completed successfully and user should be rewarded
+        console.log('Monetag ad completed successfully');
         if (onComplete) onComplete();
       },
       onClose: () => {
         // Ad was closed (may or may not have been completed)
+        console.log('Monetag ad closed');
         if (onClose) onClose();
       },
       onError: (error) => {
         console.error('Monetag ad error:', error);
-        if (onError) onError(`Monetag error: ${error.message || 'Unknown error'}`);
+        
+        // Handle specific Monetag errors
+        let errorMessage = 'Failed to show ad';
+        
+        if (error.code === 'NO_ADS') {
+          errorMessage = 'No ads available right now.';
+        } else if (error.code === 'NETWORK_ERROR') {
+          errorMessage = 'Network error. Please check your connection.';
+        } else if (error.code === 'AD_BLOCKED') {
+          errorMessage = 'Ad blocker detected. Please disable it to watch ads.';
+        } else {
+          errorMessage = `Monetag error: ${error.message || 'Unknown error'}`;
+        }
+        
+        if (onError) onError(errorMessage);
       }
     });
   } catch (error) {
@@ -103,5 +88,19 @@ export function showAd({ onComplete, onClose, onError }) {
  * Check if Monetag is available
  */
 export function isAvailable() {
-  return isInitialized && monetagInstance && typeof window.monetag !== "undefined";
+  return typeof window.monetag !== "undefined" && 
+         isInitialized && 
+         monetagInstance !== null;
+}
+
+/**
+ * Get Monetag status for debugging
+ */
+export function getStatus() {
+  return {
+    sdkLoaded: typeof window.monetag !== "undefined",
+    initialized: isInitialized,
+    instanceReady: monetagInstance !== null,
+    publisherId: config?.publisherId ? '***' + config.publisherId.slice(-4) : 'Not set'
+  };
 }
