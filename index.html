@@ -4,25 +4,16 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
     <title>SkyTON</title>
 
-    <!-- Adsgram SDK (REQUIRED FOR REWARDED ADS) -->
+    <!-- Adsgram SDK -->
     <script src="https://sdk.adsgram.com/script.js"></script>
-    <script>
-      console.log('Adsgram SDK loaded:', !!window.Adsgram);
-    </script>
-
-    <!-- Monetag SDK (REQUIRED FOR REWARDED ADS) -->
+    <!-- Monetag SDK -->
     <script src="https://cdn.monetag.com/sdk.js"></script>
-    <script>
-      console.log('Monetag SDK loaded:', !!window.monetag);
-    </script>
-
-    <!-- Vite injects the app entry point here -->
   </head>
   <body>
     <div id="root"></div>
+    <!-- Your main app script -->
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
