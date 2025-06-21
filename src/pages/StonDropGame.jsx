@@ -20,7 +20,7 @@ const getRandomPosition = () => `${Math.random() * 80}%`;
 const getRandomReward = () => Math.floor(Math.random() * 5) + 1;
 
 export default function StonDropGame() {
-  const [userData, setUser Data] = useState(null);
+  const [userData, setUserData] = useState(null);
   const [droppables, setDroppables] = useState([]);
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
@@ -38,7 +38,7 @@ export default function StonDropGame() {
   const catchAudio = useRef(new Audio(catchSfx));
   const explosionAudio = useRef(new Audio(explosionSfx));
 
-  const userId = sessionStorage.getItem("gameUser Id");
+  const userId = sessionStorage.getItem("gameUserId");
   const gameTimer = useRef(null);
   const dropInterval = useRef(null);
 
