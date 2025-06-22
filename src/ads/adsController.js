@@ -14,7 +14,7 @@ const AD_CONFIG = {
     enabled: import.meta.env.VITE_ADSGRAM_ENABLED === 'true',
   },
   monetag: {
-    zoneId: import.meta.env.VITE_MONETAG_ZONE_ID, // Changed from publisherId to zoneId
+    zoneId: import.meta.env.VITE_MONETAG_ZONE_ID,
     enabled: import.meta.env.VITE_MONETAG_ENABLED === 'true',
   },
   // Add more network configs here
@@ -37,7 +37,7 @@ const adNetworks = [
     showAd: monetag.showAd,
     isAvailable: () => {
       return AD_CONFIG.monetag.enabled && 
-             AD_CONFIG.monetag.zoneId && // Changed from publisherId to zoneId
+             AD_CONFIG.monetag.zoneId && 
              monetag.isAvailable();
     },
     config: AD_CONFIG.monetag,
@@ -83,8 +83,10 @@ export function initializeAdNetworks() {
       }
     });
     
-    // Log final status
-    console.log('Ad networks initialization finished. Status:', getAdNetworkStatus());
+    // Log final status after a short delay to allow async initialization
+    setTimeout(() => {
+      console.log('Ad networks initialization finished. Status:', getAdNetworkStatus());
+    }, 1000);
   }, 1000); // Give scripts time to load
 }
 
@@ -237,6 +239,16 @@ export function reinitializeAdNetworks() {
   initializationAttempted = false;
   isAdLoading = false;
   lastNetworkIndex = -1;
+  
+  // Reset individual network states
+  adNetworks.forEach(network => {
+    if (network.name === 'adsgram') {
+      adsgram.reset && adsgram.reset();
+    } else if (network.name === 'monetag') {
+      monetag.reset && monetag.reset();
+    }
+  });
+  
   initializeAdNetworks();
 }
 
@@ -259,6 +271,62 @@ export function getDebugInfo() {
       adsgramBlockId: AD_CONFIG.adsgram.blockId ? 'Set' : 'Not set',
       monetagEnabled: AD_CONFIG.monetag.enabled,
       monetagZoneId: AD_CONFIG.monetag.zoneId ? 'Set' : 'Not set'
-    }
+    },
+    networkStatus: getAdNetworkStatus()
   };
+}
+
+/**
+ * Show ad from specific network (for testing)
+ */
+export function showAdFromNetwork(networkName, handlers) {
+  const network = adNetworks.find(n => n.name === networkName);
+  
+  if (!network) {
+    console.error(`Network ${networkName} not found`);
+    if (handlers.onError) {
+      handlers.onError(`Network ${networkName} not found`);
+    }
+    return;
+  }
+
+  if (!network.config.enabled) {
+    console.error(`Network ${networkName} is disabled`);
+    if (handlers.onError) {
+      handlers.onError(`Network ${networkName} is disabled`);
+    }
+    return;
+  }
+
+  if (!network.isAvailable()) {
+    console.error(`Network ${networkName} is not available`);
+    if (handlers.onError) {
+      handlers.onError(`Network ${networkName} is not available`);
+    }
+    return;
+  }
+
+  console.log(`Showing ad from specific network: ${networkName}`);
+  network.showAd(handlers);
+}
+
+/**
+ * Wait for ad networks to be ready
+ */
+export function waitForAdNetworks(timeout = 5000) {
+  return new Promise((resolve) => {
+    const startTime = Date.now();
+    
+    const checkReady = () => {
+      const availableCount = adNetworks.filter(n => n.config.enabled && n.isAvailable()).length;
+      
+      if (availableCount > 0 || Date.now() - startTime > timeout) {
+        resolve(availableCount > 0);
+      } else {
+        setTimeout(checkReady, 100);
+      }
+    };
+    
+    checkReady();
+  });
 }
