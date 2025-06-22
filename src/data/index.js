@@ -1,16 +1,4 @@
 // src/data/index.js
-import React from "react";
-import ReactDOM from "react-dom/client";
-import LaunchParamRestorer from "./LaunchParamRestorer";
-import WrappedApp from "./App"; // your main App export
-
-ReactDOM.createRoot(document.getElementById("root")).render(
-  <React.StrictMode>
-    <LaunchParamRestorer />
-    <WrappedApp />
-  </React.StrictMode>
-);
-
 
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, limit, doc, updateDoc, increment, getDoc } from 'firebase/firestore';
