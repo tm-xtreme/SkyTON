@@ -30,6 +30,30 @@ const pageTransition = {
   duration: 0.25
 };
 
+
+if (currentUser && currentUser.needsTelegram) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[#0f0f0f] text-white flex-col">
+      <div className="bg-[#181818] px-8 py-10 rounded-lg shadow-lg text-center">
+        <h1 className="text-2xl font-bold mb-4">SkyTON</h1>
+        <p className="mb-6 text-lg">
+          Please open this app through the <span className="text-sky-400 font-semibold">SkyTON Telegram Bot</span> to continue.
+        </p>
+        <a
+          href="https://t.me/xSkyTON_Bot"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block bg-sky-500 hover:bg-sky-400 text-white px-6 py-2 rounded transition"
+        >
+          Open in Telegram
+        </a>
+      </div>
+    </div>
+  );
+}
+
+
+
 function AppContent({
   isAdmin,
   adminVerified,
