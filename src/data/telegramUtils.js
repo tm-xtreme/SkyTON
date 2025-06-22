@@ -21,8 +21,9 @@ export const parseLaunchParams = () => {
 
   if (tgWebAppData) {
     try {
-      // Persist the hash for future reloads
-      sessionStorage.setItem('tgWebAppHash', window.location.hash.slice(1));
+      // Persist the hash for future reloads (use the working hash, not window.location.hash.slice(1))
+      sessionStorage.setItem('tgWebAppHash', hash);
+
       const dataParams = new URLSearchParams(tgWebAppData);
       const userParam = dataParams.get('user');
 
