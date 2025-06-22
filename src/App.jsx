@@ -224,7 +224,6 @@ function App() {
   );
 }
 
-
 export default function WrappedApp() {
   return (
     <Router>
