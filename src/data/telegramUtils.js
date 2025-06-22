@@ -10,19 +10,30 @@ export const parseLaunchParams = () => {
   }
 
   if (!hash) {
+    // Final fallback: try raw tgWebAppData
+    const tgWebAppDataRaw = sessionStorage.getItem('tgWebAppDataRaw');
+    if (tgWebAppDataRaw) {
+      // Try to reconstruct the params string and parse as usual
+      const params = new URLSearchParams();
+      params.set('tgWebAppData', tgWebAppDataRaw);
+      return parseFromParams(params);
+    }
     return { telegramUser: null, referrerId: null };
   }
 
   const params = new URLSearchParams(hash);
-  const tgWebAppData = params.get('tgWebAppData');
+  return parseFromParams(params);
+};
 
+function parseFromParams(params) {
+  const tgWebAppData = params.get('tgWebAppData');
   let telegramUser = null;
   let referrerId = null;
 
   if (tgWebAppData) {
     try {
-      // Persist the hash for future reloads (use the working hash, not window.location.hash.slice(1))
-      sessionStorage.setItem('tgWebAppHash', hash);
+      // Persist for future reloads
+      sessionStorage.setItem('tgWebAppDataRaw', tgWebAppData);
 
       const dataParams = new URLSearchParams(tgWebAppData);
       const userParam = dataParams.get('user');
@@ -49,11 +60,12 @@ export const parseLaunchParams = () => {
   }
 
   return { telegramUser, referrerId };
-};
+}
 
 // You may want to clear session on logout
 export const clearTelegramSession = () => {
   sessionStorage.removeItem('tgWebAppHash');
+  sessionStorage.removeItem('tgWebAppDataRaw');
 };
 
 export const generateReferralLink = (userId) => {
