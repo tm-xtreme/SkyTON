@@ -2,6 +2,8 @@
 
 import React from 'react';
 
+// src/data/telegramUtils.js
+
 // Restore Telegram Session: Copy from localStorage to sessionStorage if missing
 export function restoreTelegramSession() {
   const keys = ['tgWebAppHash', 'tgWebAppDataRaw', 'userId'];
@@ -15,11 +17,10 @@ export function restoreTelegramSession() {
 // Call this IMMEDIATELY at the top of your app, before using any Telegram params!
 restoreTelegramSession();
 
-// --- Main Parsing Function ---
 export const parseLaunchParams = () => {
   let hash = window.location.hash ? window.location.hash.slice(1) : '';
 
-  // 1. Get from URL hash
+  // 1. Get from URL hash or sessionStorage
   if (!hash) {
     hash = sessionStorage.getItem('tgWebAppHash') || '';
   }
@@ -42,7 +43,6 @@ export const parseLaunchParams = () => {
   let referrerId = null;
 
   if (!tgWebAppData && window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe) {
-    // Telegram official object, if opened inside Telegram
     const unsafe = window.Telegram.WebApp.initDataUnsafe;
     if (unsafe && unsafe.user) {
       telegramUser = {
@@ -88,7 +88,7 @@ export const parseLaunchParams = () => {
           profilePicUrl: userData.photo_url || null,
         };
 
-        // Also store userId for app-wide restoration
+        // Store userId for app-wide restoration
         sessionStorage.setItem('userId', telegramUser.id);
         localStorage.setItem('userId', telegramUser.id);
       }
@@ -101,7 +101,6 @@ export const parseLaunchParams = () => {
   return { telegramUser, referrerId };
 };
 
-// You may want to clear session on logout
 export const clearTelegramSession = () => {
   sessionStorage.removeItem('tgWebAppHash');
   sessionStorage.removeItem('tgWebAppDataRaw');
