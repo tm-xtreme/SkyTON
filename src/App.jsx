@@ -14,7 +14,7 @@ import Navigation from '@/components/layout/Navigation';
 import { Toaster } from '@/components/ui/toaster';
 import { initializeAppData } from '@/data';
 import { Loader2 } from 'lucide-react';
-import { initializeAdNetworks, showInterstitialAd } from '@/ads/adsController'; // <-- import showInterstitialAd
+import { initializeAdNetworks, showRewardedAd } from '@/ads/adsController'; // <-- use showRewardedAd
 
 export const UserContext = React.createContext(null);
 
@@ -139,11 +139,16 @@ function App() {
     loadUser();
   }, []);
 
-  // Show ads every 5 minutes if not on game route
+  // Show rewarded ad every 5 minutes if not on game route
   useEffect(() => {
     if (!isLoading && currentUser && location.pathname !== "/game") {
       const interval = setInterval(() => {
-        showInterstitialAd && showInterstitialAd();
+        // You can optionally pass handlers to showRewardedAd, or call without arguments for default behavior
+        showRewardedAd({
+          onComplete: () => console.log("Ad completed."),
+          onClose: () => console.log("Ad closed."),
+          onError: (err) => console.error("Ad error:", err)
+        });
       }, 5 * 60 * 1000); // 5 minutes
       return () => clearInterval(interval);
     }
