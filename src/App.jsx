@@ -114,7 +114,8 @@ function App() {
   const prevIsGameRoute = useRef(null);
 
   const isGameRoute = location.pathname === "/game";
-  const isAdminRoute = location.pathname.startsWith("/admin");
+  // Allow any /admin or /admin/* route
+  const isAdminRoute = location.pathname === "/admin" || location.pathname.startsWith("/admin/");
   const isAdmin = currentUser?.isAdmin === true;
 
   // Helper to start ad timer
