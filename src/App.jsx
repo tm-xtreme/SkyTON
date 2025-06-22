@@ -14,7 +14,7 @@ import Navigation from '@/components/layout/Navigation';
 import { Toaster } from '@/components/ui/toaster';
 import { initializeAppData } from '@/data';
 import { Loader2 } from 'lucide-react';
-import { initializeAdNetworks, showRewardedAd } from '@/ads/adsController'; // <-- use showRewardedAd
+import { initializeAdNetworks, showRewardedAd } from '@/ads/adsController'; // <- use showRewardedAd
 
 export const UserContext = React.createContext(null);
 
