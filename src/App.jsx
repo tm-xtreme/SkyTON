@@ -30,30 +30,6 @@ const pageTransition = {
   duration: 0.25
 };
 
-
-if (currentUser && currentUser.needsTelegram) {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0f0f0f] text-white flex-col">
-      <div className="bg-[#181818] px-8 py-10 rounded-lg shadow-lg text-center">
-        <h1 className="text-2xl font-bold mb-4">SkyTON</h1>
-        <p className="mb-6 text-lg">
-          Please open this app through the <span className="text-sky-400 font-semibold">SkyTON Telegram Bot</span> to continue.
-        </p>
-        <a
-          href="https://t.me/xSkyTON_Bot"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-block bg-sky-500 hover:bg-sky-400 text-white px-6 py-2 rounded transition"
-        >
-          Open in Telegram
-        </a>
-      </div>
-    </div>
-  );
-}
-
-
-
 function AppContent({
   isAdmin,
   adminVerified,
@@ -138,6 +114,7 @@ function App() {
   const prevIsGameRoute = useRef(null);
 
   const isGameRoute = location.pathname === "/game";
+  const isAdminRoute = location.pathname.startsWith("/admin");
   const isAdmin = currentUser?.isAdmin === true;
 
   // Helper to start ad timer
@@ -229,6 +206,11 @@ function App() {
     sessionStorage.removeItem("adminSession");
     sessionStorage.removeItem("cachedUser");
     sessionStorage.removeItem("tgWebAppDataRaw");
+    localStorage.removeItem("userId");
+    localStorage.removeItem("tgWebAppHash");
+    localStorage.removeItem("tgWebAppDataRaw");
+    sessionStorage.removeItem("userId");
+    sessionStorage.removeItem("tgWebAppHash");
   };
 
   if (isLoading) {
@@ -236,6 +218,31 @@ function App() {
       <div className="min-h-screen flex items-center justify-center bg-[#0f0f0f] text-white">
         <Loader2 className="h-12 w-12 animate-spin text-sky-400" />
         <p className="text-sm text-muted-foreground ml-3">Loading your dashboard...</p>
+      </div>
+    );
+  }
+
+  // Show Telegram warning if user is not in Telegram context, but NOT on /admin
+  if (
+    currentUser && currentUser.needsTelegram &&
+    !isAdminRoute
+  ) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0f0f0f] text-white flex-col">
+        <div className="bg-[#181818] px-8 py-10 rounded-lg shadow-lg text-center">
+          <h1 className="text-2xl font-bold mb-4">SkyTON</h1>
+          <p className="mb-6 text-lg">
+            Please open this app through the <span className="text-sky-400 font-semibold">SkyTON Telegram Bot</span> to continue.
+          </p>
+          <a
+            href="https://t.me/xSkyTON_Bot"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block bg-sky-500 hover:bg-sky-400 text-white px-6 py-2 rounded transition"
+          >
+            Open in Telegram
+          </a>
+        </div>
       </div>
     );
   }
@@ -248,6 +255,7 @@ function App() {
     );
   }
 
+  // Show admin navigation only on /admin route
   return (
     <UserContext.Provider value={{ user: currentUser, setUser: setCurrentUser }}>
       <div className="min-h-screen flex flex-col bg-[#0f0f0f] text-white">
@@ -262,7 +270,14 @@ function App() {
             handleLogout={handleLogout}
           />
         </main>
-        {!isGameRoute && <Navigation isAdmin={isAdmin} />}
+        {!isGameRoute && !isAdminRoute && <Navigation isAdmin={isAdmin} />}
+        {isAdminRoute && (
+          <nav className="w-full bg-[#181818] border-t border-[#222] flex items-center justify-center py-3">
+            <span className="text-lg font-semibold tracking-wide text-sky-400">
+              Admin Panel
+            </span>
+          </nav>
+        )}
         <Toaster />
       </div>
     </UserContext.Provider>
