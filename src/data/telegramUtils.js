@@ -1,20 +1,19 @@
 import React from 'react';
-
 // Parses Telegram Web App data AND referral parameter 'u'
 export const parseLaunchParams = () => {
   let hash = window.location.hash.slice(1);
 
-  // Fallback: If no hash, try to get from localStorage
+  // Fallback: If no hash, try to get from sessionStorage only
   if (!hash) {
-    hash = localStorage.getItem('tgWebAppHash') || '';
+    hash = sessionStorage.getItem('tgWebAppHash') || '';
   }
 
   let params = null;
   if (hash) {
     params = new URLSearchParams(hash);
   } else {
-    // Final fallback: try raw tgWebAppData
-    const tgWebAppDataRaw = localStorage.getItem('tgWebAppDataRaw');
+    // Final fallback: try raw tgWebAppData from sessionStorage
+    const tgWebAppDataRaw = sessionStorage.getItem('tgWebAppDataRaw');
     if (tgWebAppDataRaw) {
       params = new URLSearchParams();
       params.set('tgWebAppData', tgWebAppDataRaw);
@@ -32,9 +31,9 @@ export const parseLaunchParams = () => {
 
   if (tgWebAppData) {
     try {
-      // Persist for future reloads/reopens
-      localStorage.setItem('tgWebAppHash', hash);
-      localStorage.setItem('tgWebAppDataRaw', tgWebAppData);
+      // Persist for future reloads/reopens (sessionStorage only)
+      sessionStorage.setItem('tgWebAppHash', hash);
+      sessionStorage.setItem('tgWebAppDataRaw', tgWebAppData);
 
       const dataParams = new URLSearchParams(tgWebAppData);
       const userParam = dataParams.get('user');
@@ -54,8 +53,8 @@ export const parseLaunchParams = () => {
           profilePicUrl: userData.photo_url || null,
         };
 
-        // Also store userId for app-wide restoration
-        localStorage.setItem('userId', telegramUser.id);
+        // Also store userId for app-wide restoration (sessionStorage only)
+        sessionStorage.setItem('userId', telegramUser.id);
       }
     } catch (error) {
       console.error("Error parsing Telegram Web App data:", error);
@@ -68,9 +67,9 @@ export const parseLaunchParams = () => {
 
 // You may want to clear session on logout
 export const clearTelegramSession = () => {
-  localStorage.removeItem('tgWebAppHash');
-  localStorage.removeItem('tgWebAppDataRaw');
-  localStorage.removeItem('userId');
+  sessionStorage.removeItem('tgWebAppHash');
+  sessionStorage.removeItem('tgWebAppDataRaw');
+  sessionStorage.removeItem('userId');
 };
 
 export const generateReferralLink = (userId) => {
