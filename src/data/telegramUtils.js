@@ -9,29 +9,31 @@ export const parseLaunchParams = () => {
     hash = localStorage.getItem('tgWebAppHash') || '';
   }
 
-  if (!hash) {
+  let params = null;
+  if (hash) {
+    params = new URLSearchParams(hash);
+  } else {
     // Final fallback: try raw tgWebAppData
     const tgWebAppDataRaw = localStorage.getItem('tgWebAppDataRaw');
     if (tgWebAppDataRaw) {
-      const params = new URLSearchParams();
+      params = new URLSearchParams();
       params.set('tgWebAppData', tgWebAppDataRaw);
-      return parseFromParams(params);
     }
+  }
+
+  if (!params) {
     return { telegramUser: null, referrerId: null };
   }
 
-  const params = new URLSearchParams(hash);
-  return parseFromParams(params);
-};
-
-function parseFromParams(params) {
   const tgWebAppData = params.get('tgWebAppData');
+
   let telegramUser = null;
   let referrerId = null;
 
   if (tgWebAppData) {
     try {
       // Persist for future reloads/reopens
+      localStorage.setItem('tgWebAppHash', hash);
       localStorage.setItem('tgWebAppDataRaw', tgWebAppData);
 
       const dataParams = new URLSearchParams(tgWebAppData);
@@ -51,6 +53,9 @@ function parseFromParams(params) {
           fullName: `${firstName} ${lastName}`.trim(),
           profilePicUrl: userData.photo_url || null,
         };
+
+        // Also store userId for app-wide restoration
+        localStorage.setItem('userId', telegramUser.id);
       }
     } catch (error) {
       console.error("Error parsing Telegram Web App data:", error);
@@ -59,12 +64,13 @@ function parseFromParams(params) {
   }
 
   return { telegramUser, referrerId };
-}
+};
 
 // You may want to clear session on logout
 export const clearTelegramSession = () => {
   localStorage.removeItem('tgWebAppHash');
   localStorage.removeItem('tgWebAppDataRaw');
+  localStorage.removeItem('userId');
 };
 
 export const generateReferralLink = (userId) => {
