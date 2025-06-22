@@ -1,6 +1,7 @@
 // src/ads/networks/monetag.js
 let isInitialized = false;
 let config = null;
+let sdkCheckInterval = null;
 
 /**
  * Initialize Monetag SDK
@@ -16,28 +17,45 @@ export function initialize(adsConfig) {
   }
 
   config = adsConfig;
+  console.log('Starting Monetag initialization with zone ID:', config.zoneId);
 
-  // Wait for Monetag SDK to load
+  // Wait for Monetag SDK to load with timeout
+  let attempts = 0;
+  const maxAttempts = 50; // 5 seconds max wait
+  
   const checkSDK = () => {
+    attempts++;
+    
     if (typeof window.monetag !== "undefined") {
       try {
-        console.log('Initializing Monetag with zone ID:', config.zoneId);
-        
-        // Monetag auto-initializes when script loads
-        // We just need to verify it's ready
+        console.log('Monetag SDK loaded successfully');
         isInitialized = true;
         console.log('Monetag initialized successfully with zone ID:', config.zoneId);
+        
+        if (sdkCheckInterval) {
+          clearInterval(sdkCheckInterval);
+          sdkCheckInterval = null;
+        }
       } catch (error) {
         console.error('Failed to initialize Monetag:', error);
         isInitialized = false;
       }
+    } else if (attempts >= maxAttempts) {
+      console.error('Monetag SDK failed to load after', maxAttempts * 100, 'ms');
+      if (sdkCheckInterval) {
+        clearInterval(sdkCheckInterval);
+        sdkCheckInterval = null;
+      }
     } else {
-      console.log('Waiting for Monetag SDK to load...');
-      setTimeout(checkSDK, 100);
+      console.log(`Waiting for Monetag SDK to load... (attempt ${attempts}/${maxAttempts})`);
     }
   };
 
+  // Start checking immediately, then every 100ms
   checkSDK();
+  if (!isInitialized && attempts < maxAttempts) {
+    sdkCheckInterval = setInterval(checkSDK, 100);
+  }
 }
 
 /**
@@ -47,7 +65,9 @@ export function initialize(adsConfig) {
 export function showAd({ onComplete, onClose, onError }) {
   console.log('Monetag showAd called:', { 
     isInitialized, 
-    sdkLoaded: typeof window.monetag !== "undefined"
+    sdkLoaded: typeof window.monetag !== "undefined",
+    hasConfig: !!config,
+    zoneId: config?.zoneId
   });
 
   if (!isInitialized || typeof window.monetag === "undefined") {
@@ -57,11 +77,39 @@ export function showAd({ onComplete, onClose, onError }) {
     return;
   }
 
+  if (!config?.zoneId) {
+    const errorMsg = 'Monetag zone ID not configured.';
+    console.error(errorMsg);
+    if (onError) onError(errorMsg);
+    return;
+  }
+
   try {
-    console.log('Showing Monetag ad with zone ID:', config.zoneId);
+    console.log('Attempting to show Monetag ad with zone ID:', config.zoneId);
     
-    // Monetag direct zone invocation (most common method)
+    // Method 1: Try direct zone invocation (most common)
+    if (window.monetag && typeof window.monetag === 'function') {
+      console.log('Using direct monetag() call');
+      window.monetag(config.zoneId, {
+        onComplete: () => {
+          console.log('Monetag ad completed successfully - user rewarded');
+          if (onComplete) onComplete();
+        },
+        onClose: () => {
+          console.log('Monetag ad closed');
+          if (onClose) onClose();
+        },
+        onError: (error) => {
+          console.error('Monetag ad error:', error);
+          handleMontagError(error, onError);
+        }
+      });
+      return;
+    }
+
+    // Method 2: Try invoke method
     if (window.monetag && typeof window.monetag.invoke === 'function') {
+      console.log('Using monetag.invoke() method');
       window.monetag.invoke({
         zone: config.zoneId,
         onComplete: () => {
@@ -77,9 +125,12 @@ export function showAd({ onComplete, onClose, onError }) {
           handleMontagError(error, onError);
         }
       });
-    } 
-    // Alternative method for some Monetag implementations
-    else if (window.monetag && typeof window.monetag.show === 'function') {
+      return;
+    }
+
+    // Method 3: Try show method
+    if (window.monetag && typeof window.monetag.show === 'function') {
+      console.log('Using monetag.show() method');
       window.monetag.show({
         zoneId: config.zoneId,
         onComplete: () => {
@@ -95,37 +146,12 @@ export function showAd({ onComplete, onClose, onError }) {
           handleMontagError(error, onError);
         }
       });
+      return;
     }
-    // Direct zone call (simplest method)
-    else {
-      // Create ad container
-      const adContainer = document.createElement('div');
-      adContainer.id = `monetag-${config.zoneId}`;
-      document.body.appendChild(adContainer);
-      
-      // Call Monetag zone directly
-      if (window.monetag) {
-        window.monetag(config.zoneId, {
-          onComplete: () => {
-            console.log('Monetag ad completed successfully - user rewarded');
-            document.body.removeChild(adContainer);
-            if (onComplete) onComplete();
-          },
-          onClose: () => {
-            console.log('Monetag ad closed');
-            document.body.removeChild(adContainer);
-            if (onClose) onClose();
-          },
-          onError: (error) => {
-            console.error('Monetag ad error:', error);
-            document.body.removeChild(adContainer);
-            handleMontagError(error, onError);
-          }
-        });
-      } else {
-        throw new Error('Monetag SDK not properly loaded');
-      }
-    }
+
+    // If no methods work, throw error
+    throw new Error('No valid Monetag methods found. Available methods: ' + Object.keys(window.monetag || {}));
+
   } catch (error) {
     console.error('Monetag show error:', error);
     const errorMsg = `Failed to show Monetag ad: ${error.message || 'Unknown error'}`;
@@ -167,7 +193,10 @@ export function isAvailable() {
   console.log('Monetag availability check:', {
     sdkLoaded: typeof window.monetag !== "undefined",
     initialized: isInitialized,
-    overall: available
+    overall: available,
+    windowMonetag: typeof window.monetag,
+    hasConfig: !!config,
+    zoneId: config?.zoneId ? '***' + config.zoneId.slice(-4) : 'Not set'
   });
   
   return available;
@@ -182,7 +211,8 @@ export function getStatus() {
     initialized: isInitialized,
     zoneId: config?.zoneId ? '***' + config.zoneId.slice(-4) : 'Not set',
     config: config ? { ...config, zoneId: '***' + config.zoneId?.slice(-4) } : null,
-    windowMonetag: typeof window.monetag
+    windowMonetag: typeof window.monetag,
+    availableMethods: window.monetag ? Object.keys(window.monetag) : []
   };
 }
 
@@ -193,6 +223,11 @@ export function reset() {
   console.log('Resetting Monetag instance...');
   isInitialized = false;
   config = null;
+  
+  if (sdkCheckInterval) {
+    clearInterval(sdkCheckInterval);
+    sdkCheckInterval = null;
+  }
 }
 
 /**
