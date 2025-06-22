@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   BrowserRouter as Router,
   Routes,
@@ -14,11 +14,10 @@ import Navigation from '@/components/layout/Navigation';
 import { Toaster } from '@/components/ui/toaster';
 import { initializeAppData } from '@/data';
 import { Loader2 } from 'lucide-react';
-import { initializeAdNetworks, showRewardedAd } from '@/ads/adsController'; // <- use showRewardedAd
+import { initializeAdNetworks, showRewardedAd } from '@/ads/adsController';
 
 export const UserContext = React.createContext(null);
 
-// Page transition animations
 const pageVariants = {
   initial: { opacity: 0, y: 10 },
   in: { opacity: 1, y: 0 },
@@ -110,6 +109,46 @@ function App() {
   const [adminVerified, setAdminVerified] = useState(() => localStorage.getItem("adminVerified") === "true");
   const [adminPassword, setAdminPassword] = useState('');
 
+  // --- AD TIMER LOGIC ---
+  const adTimerRef = useRef(null);
+  const prevIsGameRoute = useRef(null);
+
+  const isGameRoute = location.pathname === "/game";
+  const isAdmin = currentUser?.isAdmin === true;
+
+  // Helper to start ad timer
+  const startAdTimer = () => {
+    if (adTimerRef.current) clearInterval(adTimerRef.current);
+    adTimerRef.current = setInterval(() => {
+      showRewardedAd({
+        onComplete: () => console.log("Ad completed."),
+        onClose: () => console.log("Ad closed."),
+        onError: (err) => console.error("Ad error:", err)
+      });
+    }, 2 * 60 * 1000); // 2 minutes
+  };
+
+  // Helper to stop ad timer
+  const stopAdTimer = () => {
+    if (adTimerRef.current) {
+      clearInterval(adTimerRef.current);
+      adTimerRef.current = null;
+    }
+  };
+
+  // Manage ad timer based on route
+  useEffect(() => {
+    // Only start ad timer if not in game and the user is loaded
+    if (!isLoading && currentUser && !isGameRoute) {
+      startAdTimer();
+    } else {
+      stopAdTimer();
+    }
+    prevIsGameRoute.current = isGameRoute;
+    // Clean up on unmount
+    return () => stopAdTimer();
+  }, [isLoading, currentUser, isGameRoute]);
+
   useEffect(() => {
     const loadUser = async () => {
       try {
@@ -139,21 +178,6 @@ function App() {
     loadUser();
   }, []);
 
-  // Show rewarded ad every 5 minutes if not on game route
-  useEffect(() => {
-    if (!isLoading && currentUser && location.pathname !== "/game") {
-      const interval = setInterval(() => {
-        // You can optionally pass handlers to showRewardedAd, or call without arguments for default behavior
-        showRewardedAd({
-          onComplete: () => console.log("Ad completed."),
-          onClose: () => console.log("Ad closed."),
-          onError: (err) => console.error("Ad error:", err)
-        });
-      }, 5 * 60 * 1000); // 5 minutes
-      return () => clearInterval(interval);
-    }
-  }, [isLoading, currentUser, location.pathname]);
-
   const handleAdminLogin = async () => {
     try {
       const res = await fetch("/api/verifyAdmin", {
@@ -182,9 +206,6 @@ function App() {
     sessionStorage.removeItem("cachedUser");
     sessionStorage.removeItem("tgWebAppDataRaw");
   };
-
-  const isGameRoute = location.pathname === "/game";
-  const isAdmin = currentUser?.isAdmin === true;
 
   if (isLoading) {
     return (
