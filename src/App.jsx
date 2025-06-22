@@ -14,9 +14,7 @@ import Navigation from '@/components/layout/Navigation';
 import { Toaster } from '@/components/ui/toaster';
 import { initializeAppData } from '@/data';
 import { Loader2 } from 'lucide-react';
-import { initializeAdNetworks } from '@/ads/adsController';
-
-
+import { initializeAdNetworks, showInterstitialAd } from '@/ads/adsController'; // <-- import showInterstitialAd
 
 export const UserContext = React.createContext(null);
 
@@ -141,6 +139,16 @@ function App() {
     loadUser();
   }, []);
 
+  // Show ads every 5 minutes if not on game route
+  useEffect(() => {
+    if (!isLoading && currentUser && location.pathname !== "/game") {
+      const interval = setInterval(() => {
+        showInterstitialAd && showInterstitialAd();
+      }, 5 * 60 * 1000); // 5 minutes
+      return () => clearInterval(interval);
+    }
+  }, [isLoading, currentUser, location.pathname]);
+
   const handleAdminLogin = async () => {
     try {
       const res = await fetch("/api/verifyAdmin", {
@@ -190,7 +198,6 @@ function App() {
     );
   }
 
-  
   return (
     <UserContext.Provider value={{ user: currentUser, setUser: setCurrentUser }}>
       <div className="min-h-screen flex flex-col bg-[#0f0f0f] text-white">
@@ -211,7 +218,6 @@ function App() {
     </UserContext.Provider>
   );
 }
-
 
 export default function WrappedApp() {
   return (
