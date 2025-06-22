@@ -4,16 +4,15 @@ import React from 'react';
 export const parseLaunchParams = () => {
   let hash = window.location.hash.slice(1);
 
-  // Fallback: If no hash, try to get from sessionStorage
+  // Fallback: If no hash, try to get from localStorage
   if (!hash) {
-    hash = sessionStorage.getItem('tgWebAppHash') || '';
+    hash = localStorage.getItem('tgWebAppHash') || '';
   }
 
   if (!hash) {
     // Final fallback: try raw tgWebAppData
-    const tgWebAppDataRaw = sessionStorage.getItem('tgWebAppDataRaw');
+    const tgWebAppDataRaw = localStorage.getItem('tgWebAppDataRaw');
     if (tgWebAppDataRaw) {
-      // Try to reconstruct the params string and parse as usual
       const params = new URLSearchParams();
       params.set('tgWebAppData', tgWebAppDataRaw);
       return parseFromParams(params);
@@ -32,8 +31,8 @@ function parseFromParams(params) {
 
   if (tgWebAppData) {
     try {
-      // Persist for future reloads
-      sessionStorage.setItem('tgWebAppDataRaw', tgWebAppData);
+      // Persist for future reloads/reopens
+      localStorage.setItem('tgWebAppDataRaw', tgWebAppData);
 
       const dataParams = new URLSearchParams(tgWebAppData);
       const userParam = dataParams.get('user');
@@ -64,8 +63,8 @@ function parseFromParams(params) {
 
 // You may want to clear session on logout
 export const clearTelegramSession = () => {
-  sessionStorage.removeItem('tgWebAppHash');
-  sessionStorage.removeItem('tgWebAppDataRaw');
+  localStorage.removeItem('tgWebAppHash');
+  localStorage.removeItem('tgWebAppDataRaw');
 };
 
 export const generateReferralLink = (userId) => {
